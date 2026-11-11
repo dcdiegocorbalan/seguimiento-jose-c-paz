@@ -64,7 +64,7 @@
                 canal: 'Evangelismo',
                 perfil: '',
                 peticionesOracion: '',
-                comentariosPastor: ''
+                notasPastor: ''
             });
 
             const [newUserData, setNewUserData] = React.useState({
@@ -74,11 +74,10 @@
                 rol: 'colaborador'
             });
 
-            // Estado para cambio de clave de usuarios
             const [editingPasswordUserId, setEditingPasswordUserId] = React.useState(null);
             const [newPasswordValue, setNewPasswordValue] = React.useState('');
 
-            // Base de datos de Personas (asignadas a Tatiana Cariddi por defecto)
+            // Base de datos de Personas
             const [personas, setPersonas] = React.useState(() => {
                 const saved = localStorage.getItem('alfarero_personas');
                 if (saved) return JSON.parse(saved);
@@ -96,10 +95,9 @@
                             { categoria: "Salud", texto: "Presión alta, diabetes." },
                             { categoria: "Estudios", texto: "Enfermería. Aprobar materias difíciles como inglés." }
                         ],
+                        notasPastor: "Se siente muy agradecida y acompañada con la iglesia.",
                         comentariosPastor: "No presenta un problema de salud grave.",
-                        historial: [
-                            { fecha: "Mediodía del 11/10/26", tipo: "Conversación de WhatsApp", nota: "Contacto positivo." }
-                        ]
+                        historial: []
                     },
                     {
                         id: 2,
@@ -109,28 +107,15 @@
                         canal: "Visita",
                         visitas: 0,
                         colaborador: "Tatiana Cariddi",
-                        perfil: "Amable, proactiva, atareada. Doble ánimo, indecisa con congregarse. Amiga cercana de Stella.",
+                        perfil: "Amable, proactiva, atareada. Doble ánimo, indecisa con congregarse.",
                         pedidosOracion: [{ categoria: "Salud", texto: "Tratamiento de diabetes." }],
-                        comentariosPastor: "No presenta un problema de salud grave.",
-                        historial: []
-                    },
-                    {
-                        id: 3,
-                        nombre: "Aldana",
-                        grado: 5,
-                        gradoTexto: "Grado 5: Visitante",
-                        canal: "Evangelismo",
-                        visitas: 0,
-                        colaborador: "Tatiana Cariddi",
-                        perfil: "Sensible, muy creativa, divertida, alegre. Volvió a congregarse en la iglesia.",
-                        pedidosOracion: [{ categoria: "Trabajo", texto: "Mejor oportunidad laboral." }],
+                        notasPastor: "Le dejé mensajes pero no respondió.",
                         comentariosPastor: "No presenta un problema de salud grave.",
                         historial: []
                     }
                 ];
             });
 
-            // Guardar en localStorage
             React.useEffect(() => {
                 localStorage.setItem('alfarero_personas', JSON.stringify(personas));
             }, [personas]);
@@ -147,13 +132,11 @@
                 }
             }, [currentUser]);
 
-            // Handler Login
             const handleLogin = (e) => {
                 e.preventDefault();
                 const userFound = usuarios.find(
                     u => u.usuario.toLowerCase() === loginUserInput.trim().toLowerCase() && u.clave === loginPassInput.trim()
                 );
-
                 if (userFound) {
                     setCurrentUser(userFound);
                     setLoginError('');
@@ -169,7 +152,6 @@
                 setActiveTab('dashboard');
             };
 
-            // Handler Crear Persona
             const handleCreatePerson = (e) => {
                 e.preventDefault();
                 if (!newPersonData.nombre.trim()) return;
@@ -181,21 +163,21 @@
                     gradoTexto: `Grado ${newPersonData.grado}: ${gradosMap[newPersonData.grado]}`,
                     canal: newPersonData.canal,
                     visitas: 0,
-                    colaborador: currentUser.nombre, // Asigna automáticamente al usuario logueado
+                    colaborador: currentUser.nombre, // Se asigna automáticamente al usuario actual
                     perfil: newPersonData.perfil || 'Sin datos de perfil.',
                     pedidosOracion: newPersonData.peticionesOracion 
                         ? [{ categoria: "General", texto: newPersonData.peticionesOracion }] 
                         : [],
-                    comentariosPastor: newPersonData.comentariosPastor || 'Sin observaciones.',
+                    notasPastor: newPersonData.notasPastor || '',
+                    comentariosPastor: 'Pendiente de revisión pastoral.',
                     historial: []
                 };
 
                 setPersonas([newEntry, ...personas]);
                 setShowNewPersonModal(false);
-                setNewPersonData({ nombre: '', grado: 3, canal: 'Evangelismo', perfil: '', peticionesOracion: '', comentariosPastor: '' });
+                setNewPersonData({ nombre: '', grado: 3, canal: 'Evangelismo', perfil: '', peticionesOracion: '', notasPastor: '' });
             };
 
-            // Handler Actualizar Persona Editada
             const handleSaveEditedPerson = (e) => {
                 e.preventDefault();
                 const updatedList = personas.map(p => {
@@ -212,7 +194,6 @@
                 alert('¡Ficha actualizada con éxito!');
             };
 
-            // Handler Crear Usuario
             const handleCreateUser = (e) => {
                 e.preventDefault();
                 if (!newUserData.usuario || !newUserData.clave || !newUserData.nombre) return;
@@ -230,7 +211,6 @@
                 alert('¡Usuario creado con éxito!');
             };
 
-            // Handler Cambiar Clave de Usuario
             const handleChangePassword = (userId) => {
                 if (!newPasswordValue.trim()) return;
                 const updatedUsers = usuarios.map(u => {
@@ -256,13 +236,13 @@
                 return matchName && matchGrado;
             });
 
-            // 1. PANTALLA DE LOGIN
+            // PANTALLA DE LOGIN (Sin datos expuestos)
             if (!currentUser) {
                 return (
                     <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center p-4">
                         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-gray-200 p-8 space-y-6">
                             <div className="text-center space-y-3">
-                                <img src="Logo La Casa del Alfarero.png" alt="Logo La Casa del Alfarero" className="h-20 mx-auto object-contain" onError={(e)=>{e.target.style.display='none';}} />
+                                <img src="Logo La Casa del Alfarero.png" alt="Logo" className="h-20 mx-auto object-contain" onError={(e)=>{e.target.style.display='none';}} />
                                 <h1 className="text-2xl font-bold text-gray-900">La Casa del Alfarero</h1>
                                 <p className="text-xs font-semibold text-brandRed uppercase tracking-wider">Sistema de Seguimiento Pastoral</p>
                             </div>
@@ -278,7 +258,7 @@
                                     <input 
                                         type="text" 
                                         required
-                                        placeholder="Ej: pastor o tatiana"
+                                        placeholder="Ingrese su usuario"
                                         value={loginUserInput}
                                         onChange={(e) => setLoginUserInput(e.target.value)}
                                         className="w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brandRed"
@@ -299,21 +279,13 @@
                                     Ingresar a la Plataforma
                                 </button>
                             </form>
-
-                            <div className="bg-gray-50 p-3 rounded-lg border text-xs text-gray-500 space-y-1">
-                                <p className="font-bold text-gray-700">Cuentas de prueba:</p>
-                                <p>• Admin: <span className="font-semibold text-gray-800">pastor</span> / clave: <span className="font-semibold text-gray-800">1234</span></p>
-                                <p>• Colaborador: <span className="font-semibold text-gray-800">tatiana</span> / clave: <span className="font-semibold text-gray-800">1234</span></p>
-                            </div>
                         </div>
                     </div>
                 );
             }
 
-            // 2. PANTALLA PRINCIPAL
             return (
                 <div className="min-h-screen flex flex-col bg-gray-100 relative pb-20">
-                    {/* Header */}
                     <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-30">
                         <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col md:flex-row justify-between items-center gap-4">
                             <div className="flex items-center gap-3">
@@ -333,7 +305,6 @@
                                         <button onClick={() => setActiveTab('usuarios')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'usuarios' ? 'bg-brandBlue text-white shadow' : 'text-gray-600'}`}>Usuarios Admin</button>
                                     )}
                                 </nav>
-
                                 <button onClick={handleLogout} className="text-xs text-gray-500 hover:text-red-600 font-semibold px-2 py-1">
                                     Cerrar Sesión ➔
                                 </button>
@@ -350,12 +321,11 @@
                     </button>
 
                     <main className="max-w-7xl mx-auto px-4 py-6 flex-1 w-full">
-                        {/* TAB DASHBOARD */}
                         {activeTab === 'dashboard' && (
                             <div className="space-y-6">
                                 <div className="bg-gradient-to-r from-brandBlue to-blue-900 rounded-2xl p-6 text-white shadow-md flex justify-between items-center">
                                     <div>
-                                        <h2 className="text-2xl font-bold mb-1">Bienvenida, {currentUser.nombre}</h2>
+                                        <h2 className="text-2xl font-bold mb-1">Bienvenido, {currentUser.nombre}</h2>
                                         <p className="text-blue-100 text-xs">Registro y seguimiento consciente de las almas.</p>
                                     </div>
                                     <img src="Logo La Casa del Alfarero.png" alt="Logo" className="h-16 brightness-200 opacity-30 hidden sm:block" onError={(e)=>{e.target.style.display='none';}} />
@@ -369,7 +339,6 @@
                             </div>
                         )}
 
-                        {/* TAB PERSONAS */}
                         {activeTab === 'personas' && (
                             <div className="space-y-6">
                                 <div className="flex gap-3 bg-white p-4 rounded-xl shadow-sm border">
@@ -403,7 +372,6 @@
                             </div>
                         )}
 
-                        {/* TAB INTERCESIÓN */}
                         {activeTab === 'oracion' && (
                             <div className="bg-white p-6 rounded-xl shadow-sm border space-y-4">
                                 <h2 className="text-xl font-bold text-gray-900">Motivos de Oración Activos</h2>
@@ -421,7 +389,6 @@
                             </div>
                         )}
 
-                        {/* TAB USUARIOS (SOLO ADMINISTRADOR/PASTOR) */}
                         {activeTab === 'usuarios' && currentUser.rol === 'pastor' && (
                             <div className="space-y-6">
                                 <div className="bg-white p-6 rounded-xl shadow-sm border space-y-4">
@@ -455,7 +422,7 @@
                                 </div>
 
                                 <div className="bg-white p-6 rounded-xl shadow-sm border">
-                                    <h3 className="text-lg font-bold text-gray-900 mb-4">Usuarios Habilitados (Gestionar Claves)</h3>
+                                    <h3 className="text-lg font-bold text-gray-900 mb-4">Usuarios Habilitados</h3>
                                     <div className="divide-y">
                                         {usuarios.map(u => (
                                             <div key={u.id} className="py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-sm">
@@ -463,7 +430,6 @@
                                                     <p className="font-bold text-gray-800">{u.nombre}</p>
                                                     <p className="text-xs text-gray-500">Usuario: <span className="font-semibold text-gray-700">{u.usuario}</span> • Clave: <span className="font-mono bg-gray-100 px-2 py-0.5 rounded text-gray-600">••••••••</span></p>
                                                 </div>
-                                                
                                                 <div className="flex items-center gap-2 w-full sm:w-auto">
                                                     <span className="bg-gray-100 text-gray-700 text-xs px-2.5 py-1 rounded-full font-bold uppercase">{u.rol}</span>
                                                     {editingPasswordUserId === u.id ? (
@@ -526,11 +492,15 @@
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-gray-700 mb-1">Perfil / Notas de Contexto</label>
-                                        <textarea rows="3" value={newPersonData.perfil} onChange={e=>setNewPersonData({...newPersonData, perfil: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Detalles de la persona, familia, ocupación..."></textarea>
+                                        <textarea rows="3" value={newPersonData.perfil} onChange={e=>setNewPersonData({...newPersonData, perfil: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Detalles de la persona..."></textarea>
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-700 mb-1">Petición de Oración Principal</label>
-                                        <input type="text" value={newPersonData.peticionesOracion} onChange={e=>setNewPersonData({...newPersonData, peticionesOracion: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Ej: Salud de su hijo" />
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Petición de Oración</label>
+                                        <input type="text" value={newPersonData.peticionesOracion} onChange={e=>setNewPersonData({...newPersonData, peticionesOracion: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Ej: Salud" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Notas para el Pastor</label>
+                                        <textarea rows="2" value={newPersonData.notasPastor} onChange={e=>setNewPersonData({...newPersonData, notasPastor: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Mensaje o reporte para el pastor..."></textarea>
                                     </div>
                                     <div className="flex justify-end gap-2 pt-3 border-t">
                                         <button type="button" onClick={() => setShowNewPersonModal(false)} className="px-4 py-2 border rounded text-xs font-semibold">Cancelar</button>
@@ -541,7 +511,7 @@
                         </div>
                     )}
 
-                    {/* MODAL FICHA DETALLADA Y EDITABLE */}
+                    {/* MODAL FICHA DETALLADA Y EDITABLE CON RESTRICCIONES DE PERMISOS */}
                     {selectedPerson && (
                         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                             <div className="bg-white rounded-2xl max-w-2xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
@@ -552,9 +522,11 @@
                                         <p className="text-xs font-semibold text-brandRed mt-0.5">Seguimiento a cargo de: {selectedPerson.colaborador || 'Sin asignar'}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <button onClick={() => setIsEditingPerson(!isEditingPerson)} className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold px-3 py-1.5 rounded border">
-                                            {isEditingPerson ? 'Cancelar Edición' : '✏️ Editar Ficha'}
-                                        </button>
+                                        {(currentUser.rol === 'pastor' || currentUser.nombre === selectedPerson.colaborador) && (
+                                            <button onClick={() => setIsEditingPerson(!isEditingPerson)} className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold px-3 py-1.5 rounded border">
+                                                {isEditingPerson ? 'Cancelar Edición' : '✏️ Editar Ficha'}
+                                            </button>
+                                        )}
                                         <button onClick={() => { setSelectedPerson(null); setIsEditingPerson(false); }} className="font-bold text-lg px-2">✕</button>
                                     </div>
                                 </div>
@@ -575,11 +547,15 @@
                                             ))}
                                         </div>
 
-                                        {currentUser.rol === 'pastor' && (
-                                            <div className="text-xs bg-blue-50 p-3 rounded border">
-                                                <strong>Nota Pastoral:</strong> {selectedPerson.comentariosPastor}
-                                            </div>
-                                        )}
+                                        <div className="bg-gray-50 p-3 rounded border">
+                                            <h4 className="font-bold text-gray-700 text-xs uppercase mb-1">Notas para el Pastor</h4>
+                                            <p className="text-gray-700 text-xs">{selectedPerson.notasPastor || 'Sin notas registradas.'}</p>
+                                        </div>
+
+                                        <div className="bg-blue-50 p-3 rounded border border-blue-200">
+                                            <h4 className="font-bold text-brandBlue text-xs uppercase mb-1">Comentarios del Pastor</h4>
+                                            <p className="text-gray-700 text-xs">{selectedPerson.comentariosPastor || 'Sin comentarios pastorales.'}</p>
+                                        </div>
                                     </div>
                                 ) : (
                                     <form onSubmit={handleSaveEditedPerson} className="space-y-3 text-sm">
@@ -598,12 +574,20 @@
                                             </div>
                                             <div>
                                                 <label className="block text-xs font-bold text-gray-700 mb-1">Colaborador a Cargo</label>
-                                                <input 
-                                                    type="text" 
-                                                    value={selectedPerson.colaborador || ''} 
-                                                    onChange={e => setSelectedPerson({...selectedPerson, colaborador: e.target.value})}
-                                                    className="w-full p-2 border rounded text-xs"
-                                                />
+                                                {currentUser.rol === 'pastor' ? (
+                                                    <select 
+                                                        value={selectedPerson.colaborador || ''} 
+                                                        onChange={e => setSelectedPerson({...selectedPerson, colaborador: e.target.value})}
+                                                        className="w-full p-2 border rounded text-xs bg-white"
+                                                    >
+                                                        <option value="">Seleccionar colaborador</option>
+                                                        {usuarios.filter(u => u.rol === 'colaborador').map(u => (
+                                                            <option key={u.id} value={u.nombre}>{u.nombre}</option>
+                                                        ))}
+                                                    </select>
+                                                ) : (
+                                                    <input type="text" disabled value={selectedPerson.colaborador} className="w-full p-2 border rounded text-xs bg-gray-100 text-gray-500" />
+                                                )}
                                             </div>
                                         </div>
 
@@ -631,6 +615,28 @@
                                                 className="w-full p-2 border rounded text-xs"
                                             />
                                         </div>
+
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Notas para el Pastor</label>
+                                            <textarea 
+                                                rows="2" 
+                                                value={selectedPerson.notasPastor || ''} 
+                                                onChange={e => setSelectedPerson({...selectedPerson, notasPastor: e.target.value})}
+                                                className="w-full p-2 border rounded text-xs"
+                                            ></textarea>
+                                        </div>
+
+                                        {currentUser.rol === 'pastor' && (
+                                            <div className="bg-blue-50 p-3 rounded border border-blue-200">
+                                                <label className="block text-xs font-bold text-brandBlue uppercase mb-1">Comentarios del Pastor (Exclusivo Pastor)</label>
+                                                <textarea 
+                                                    rows="2" 
+                                                    value={selectedPerson.comentariosPastor || ''} 
+                                                    onChange={e => setSelectedPerson({...selectedPerson, comentariosPastor: e.target.value})}
+                                                    className="w-full p-2 border rounded text-xs bg-white"
+                                                ></textarea>
+                                            </div>
+                                        )}
 
                                         <div className="flex justify-end gap-2 pt-3 border-t">
                                             <button type="button" onClick={() => setIsEditingPerson(false)} className="px-3 py-1.5 border rounded text-xs">Cancelar</button>
