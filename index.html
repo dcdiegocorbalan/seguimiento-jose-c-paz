@@ -26,7 +26,7 @@
 
     <script type="text/babel">
         function App() {
-            // Base de datos de Usuarios (con indicador de cambio de clave obligatorio)
+            // Base de datos de Usuarios
             const [usuarios, setUsuarios] = React.useState(() => {
                 const saved = localStorage.getItem('alfarero_usuarios');
                 if (saved) return JSON.parse(saved);
@@ -57,7 +57,7 @@
             const [forgotUserInput, setForgotUserInput] = React.useState('');
             const [forgotSuccessMsg, setForgotSuccessMsg] = React.useState('');
 
-            // Estado para cambio de clave obligatorio al iniciar
+            // Estado para cambio de clave obligatorio
             const [nuevaClaveObligatoria, setNuevaClaveObligatoria] = React.useState('');
             const [confirmarClaveObligatoria, setConfirmarClaveObligatoria] = React.useState('');
             const [errorCambioClave, setErrorCambioClave] = React.useState('');
@@ -77,6 +77,7 @@
                 nombre: '',
                 grado: 3,
                 canal: 'Evangelismo',
+                direccion: '',
                 perfil: '',
                 peticionesOracion: '',
                 notasPastor: ''
@@ -105,6 +106,7 @@
                         canal: "Visita",
                         visitas: 1,
                         colaborador: "Tatiana Cariddi",
+                        direccion: "José C. Paz, Buenos Aires",
                         perfil: "Sensible, estudiosa, busca superarse profesionalmente, muy amable, necesita mucha contención y compañía.",
                         pedidosOracion: [
                             { categoria: "Salud", texto: "Presión alta, diabetes." },
@@ -122,6 +124,7 @@
                         canal: "Visita",
                         visitas: 0,
                         colaborador: "Tatiana Cariddi",
+                        direccion: "San Miguel, Buenos Aires",
                         perfil: "Amable, proactiva, atareada. Doble ánimo, indecisa con congregarse.",
                         pedidosOracion: [{ categoria: "Salud", texto: "Tratamiento de diabetes." }],
                         notasPastor: "Le dejé mensajes pero no respondió.",
@@ -171,7 +174,6 @@
                 setActiveTab('dashboard');
             };
 
-            // Solicitar Recuperación de Clave
             const handleRequestPasswordReset = (e) => {
                 e.preventDefault();
                 if (!forgotUserInput.trim()) return;
@@ -182,7 +184,6 @@
                     return;
                 }
 
-                // Evitar duplicados pendientes
                 const yaExiste = solicitudesClave.some(s => s.usuario.toLowerCase() === forgotUserInput.trim().toLowerCase() && !s.atendida);
                 if (!yaExiste) {
                     const nuevaSolicitud = {
@@ -203,7 +204,6 @@
                 }, 3000);
             };
 
-            // Guardar nueva clave obligatoria (primer ingreso)
             const handleSaveMandatoryPassword = (e) => {
                 e.preventDefault();
                 if (!nuevaClaveObligatoria || nuevaClaveObligatoria.length < 4) {
@@ -215,7 +215,6 @@
                     return;
                 }
 
-                // Actualizar usuario en la lista global y en la sesión actual
                 const updatedUsers = usuarios.map(u => {
                     if (u.id === currentUser.id) {
                         return { ...u, clave: nuevaClaveObligatoria, debeCambiarClave: false };
@@ -232,14 +231,12 @@
                 alert('¡Contraseña actualizada correctamente!');
             };
 
-            // Pastor atiende solicitud y blanquea clave
             const handleResolveResetRequest = (solicitudId, usuarioLogin, nuevaClaveTemp) => {
                 if (!nuevaClaveTemp) {
                     alert('Por favor ingrese una contraseña temporal.');
                     return;
                 }
 
-                // Actualizar clave del usuario y marcar debeCambiarClave = true
                 const updatedUsers = usuarios.map(u => {
                     if (u.usuario.toLowerCase() === usuarioLogin.toLowerCase()) {
                         return { ...u, clave: nuevaClaveTemp, debeCambiarClave: true };
@@ -248,7 +245,6 @@
                 });
                 setUsuarios(updatedUsers);
 
-                // Marcar solicitud como atendida
                 const updatedSolicitudes = solicitudesClave.map(s => {
                     if (s.id === solicitudId) {
                         return { ...s, atendida: true };
@@ -271,6 +267,7 @@
                     canal: newPersonData.canal,
                     visitas: 0,
                     colaborador: currentUser.nombre,
+                    direccion: newPersonData.direccion || '',
                     perfil: newPersonData.perfil || 'Sin datos de perfil.',
                     pedidosOracion: newPersonData.peticionesOracion 
                         ? [{ categoria: "General", texto: newPersonData.peticionesOracion }] 
@@ -282,7 +279,7 @@
 
                 setPersonas([newEntry, ...personas]);
                 setShowNewPersonModal(false);
-                setNewPersonData({ nombre: '', grado: 3, canal: 'Evangelismo', perfil: '', peticionesOracion: '', notasPastor: '' });
+                setNewPersonData({ nombre: '', grado: 3, canal: 'Evangelismo', direccion: '', perfil: '', peticionesOracion: '', notasPastor: '' });
             };
 
             const handleSaveEditedPerson = (e) => {
@@ -311,7 +308,7 @@
                     usuario: newUserData.usuario.toLowerCase().trim(),
                     clave: newUserData.clave,
                     rol: newUserData.rol,
-                    debeCambiarClave: true // Todo usuario nuevo creado debe cambiar clave al primer ingreso
+                    debeCambiarClave: true
                 };
 
                 setUsuarios([...usuarios, newUser]);
@@ -339,7 +336,7 @@
             };
 
             const filteredPersonas = personas.filter(p => {
-                const matchName = p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || p.perfil.toLowerCase().includes(searchTerm.toLowerCase());
+                const matchName = p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || p.perfil.toLowerCase().includes(searchTerm.toLowerCase()) || (p.direccion && p.direccion.toLowerCase().includes(searchTerm.toLowerCase()));
                 const matchGrado = filterGrado === 'todos' || p.grado.toString() === filterGrado;
                 return matchName && matchGrado;
             });
@@ -438,7 +435,7 @@
                 );
             }
 
-            // 2. PANTALLA DE CAMBIO DE CLAVE OBLIGATORIO (PRIMER INGRESO)
+            // 2. PANTALLA DE CAMBIO DE CLAVE OBLIGATORIO
             if (currentUser.debeCambiarClave) {
                 return (
                     <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center p-4">
@@ -552,14 +549,24 @@
 
                         {activeTab === 'personas' && (
                             <div className="space-y-6">
-                                <div className="flex gap-3 bg-white p-4 rounded-xl shadow-sm border">
+                                <div className="flex flex-col sm:flex-row gap-3 bg-white p-4 rounded-xl shadow-sm border">
                                     <input 
                                         type="text" 
-                                        placeholder="Buscar persona o perfil..." 
+                                        placeholder="Buscar por nombre, dirección o perfil..." 
                                         value={searchTerm} 
                                         onChange={(e) => setSearchTerm(e.target.value)} 
                                         className="px-4 py-2 border rounded-lg text-sm w-full" 
                                     />
+                                    <select 
+                                        value={filterGrado} 
+                                        onChange={(e) => setFilterGrado(e.target.value)}
+                                        className="px-3 py-2 border rounded-lg text-sm bg-white font-medium text-gray-700"
+                                    >
+                                        <option value="todos">Todos los Grados</option>
+                                        {Object.entries(gradosMap).map(([num, name]) => (
+                                            <option key={num} value={num}>Grado {num}: {name}</option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {filteredPersonas.map(persona => (
@@ -570,6 +577,11 @@
                                                     <span className="bg-blue-50 text-brandBlue text-xs font-bold px-2.5 py-1 rounded-full border">{persona.gradoTexto}</span>
                                                 </div>
                                                 <p className="text-xs text-gray-500 mb-1">Canal: {persona.canal}</p>
+                                                {persona.direccion && (
+                                                    <p className="text-xs text-gray-600 mb-1 flex items-center gap-1 truncate">
+                                                        📍 <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(persona.direccion)}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-medium">{persona.direccion}</a>
+                                                    </p>
+                                                )}
                                                 <p className="text-xs font-medium text-brandRed mb-3">Seguimiento a cargo de: {persona.colaborador || 'Sin asignar'}</p>
                                                 <p className="text-sm text-gray-600 line-clamp-3">{persona.perfil}</p>
                                             </div>
@@ -602,7 +614,6 @@
 
                         {activeTab === 'usuarios' && currentUser.rol === 'pastor' && (
                             <div className="space-y-6">
-                                {/* SECCIÓN SOLICITUDES DE CLAVE */}
                                 <div className="bg-amber-50 p-6 rounded-xl shadow-sm border border-amber-200 space-y-3">
                                     <h2 className="text-lg font-bold text-amber-900 flex items-center gap-2">
                                         🔔 Solicitudes de Restablecimiento de Clave
@@ -748,6 +759,10 @@
                                         </div>
                                     </div>
                                     <div>
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Dirección (Ubicación)</label>
+                                        <input type="text" value={newPersonData.direccion} onChange={e=>setNewPersonData({...newPersonData, direccion: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Ej: Av. San Martín 1234, José C. Paz" />
+                                    </div>
+                                    <div>
                                         <label className="block text-xs font-bold text-gray-700 mb-1">Perfil / Notas de Contexto</label>
                                         <textarea rows="3" value={newPersonData.perfil} onChange={e=>setNewPersonData({...newPersonData, perfil: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Detalles de la persona..."></textarea>
                                     </div>
@@ -790,6 +805,23 @@
 
                                 {!isEditingPerson ? (
                                     <div className="space-y-4 text-sm">
+                                        {selectedPerson.direccion && (
+                                            <div className="bg-blue-50 p-3 rounded border border-blue-200 flex justify-between items-center">
+                                                <div>
+                                                    <span className="font-bold text-brandBlue text-xs uppercase block">Dirección</span>
+                                                    <p className="text-gray-700 text-xs">{selectedPerson.direccion}</p>
+                                                </div>
+                                                <a 
+                                                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedPerson.direccion)}`} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer" 
+                                                    className="bg-brandBlue text-white text-xs font-bold px-3 py-2 rounded-lg hover:bg-blue-900 transition flex items-center gap-1 shadow"
+                                                >
+                                                    🗺️ Cómo llegar
+                                                </a>
+                                            </div>
+                                        )}
+
                                         <div>
                                             <h4 className="font-bold text-gray-700 mb-1">Perfil</h4>
                                             <p className="text-gray-600 bg-gray-50 p-3 rounded">{selectedPerson.perfil}</p>
@@ -846,6 +878,16 @@
                                                     <input type="text" disabled value={selectedPerson.colaborador} className="w-full p-2 border rounded text-xs bg-gray-100 text-gray-500" />
                                                 )}
                                             </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Dirección</label>
+                                            <input 
+                                                type="text" 
+                                                value={selectedPerson.direccion || ''} 
+                                                onChange={e => setSelectedPerson({...selectedPerson, direccion: e.target.value})}
+                                                className="w-full p-2 border rounded text-xs"
+                                            />
                                         </div>
 
                                         <div>
