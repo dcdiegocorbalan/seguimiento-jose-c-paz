@@ -75,8 +75,10 @@
             // Formularios
             const [newPersonData, setNewPersonData] = React.useState({
                 nombre: '',
+                genero: 'femenino',
                 grado: 3,
                 canal: 'Evangelismo',
+                telefono: '',
                 direccion: '',
                 perfil: '',
                 peticionesOracion: '',
@@ -101,11 +103,13 @@
                     {
                         id: 1,
                         nombre: "Stella",
+                        genero: "femenino",
                         grado: 6,
                         gradoTexto: "Grado 6: Congregante",
                         canal: "Visita",
                         visitas: 1,
                         colaborador: "Tatiana Cariddi",
+                        telefono: "",
                         direccion: "José C. Paz, Buenos Aires",
                         perfil: "Sensible, estudiosa, busca superarse profesionalmente, muy amable, necesita mucha contención y compañía.",
                         pedidosOracion: [
@@ -119,11 +123,13 @@
                     {
                         id: 2,
                         nombre: "Judith",
+                        genero: "femenino",
                         grado: 5,
                         gradoTexto: "Grado 5: Invitada",
                         canal: "Visita",
                         visitas: 0,
                         colaborador: "Tatiana Cariddi",
+                        telefono: "",
                         direccion: "San Miguel, Buenos Aires",
                         perfil: "Amable, proactiva, atareada. Doble ánimo, indecisa con congregarse.",
                         pedidosOracion: [{ categoria: "Salud", texto: "Tratamiento de diabetes." }],
@@ -141,7 +147,8 @@
                 { texto: "Id por todo el mundo y predicad el evangelio a toda criatura.", cita: "Marcos 16:15" },
                 { texto: "Y los que fueron esparcidos iban por todas partes anunciando el evangelio.", cita: "Hechos 8:4" },
                 { texto: "El fruto del justo es árbol de vida; y el que gana almas es sabio.", cita: "Proverbios 11:30" },
-                { texto: "Buscad primeramente el reino de Dios y su justicia, y todas estas cosas os serán añadidas.", cita: "Mateo 6:33" }
+                { texto: "Buscad primeramente el reino de Dios y su justicia, y todas estas cosas os serán añadidas.", cita: "Mateo 6:33" },
+                { texto: "Echa tu pan sobre las aguas; porque después de muchos días lo hallarás.", cita: "Eclesiastés 11:1" }
             ];
 
             const diaDelAnio = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
@@ -275,11 +282,13 @@
                 const newEntry = {
                     id: Date.now(),
                     nombre: newPersonData.nombre,
+                    genero: newPersonData.genero,
                     grado: parseInt(newPersonData.grado),
                     gradoTexto: `Grado ${newPersonData.grado}: ${gradosMap[newPersonData.grado]}`,
                     canal: newPersonData.canal,
                     visitas: 0,
                     colaborador: currentUser.nombre,
+                    telefono: newPersonData.telefono || '',
                     direccion: newPersonData.direccion || '',
                     perfil: newPersonData.perfil || 'Sin datos de perfil.',
                     pedidosOracion: newPersonData.peticionesOracion 
@@ -292,7 +301,7 @@
 
                 setPersonas([newEntry, ...personas]);
                 setShowNewPersonModal(false);
-                setNewPersonData({ nombre: '', grado: 3, canal: 'Evangelismo', direccion: '', perfil: '', peticionesOracion: '', notasPastor: '' });
+                setNewPersonData({ nombre: '', genero: 'femenino', grado: 3, canal: 'Evangelismo', telefono: '', direccion: '', perfil: '', peticionesOracion: '', notasPastor: '' });
             };
 
             const handleSaveEditedPerson = (e) => {
@@ -365,7 +374,7 @@
                 return matchName && matchGrado;
             });
 
-            // 1. PANTALLA DE LOGIN (Sin título redundante)
+            // 1. PANTALLA DE LOGIN
             if (!currentUser) {
                 return (
                     <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center p-4">
@@ -419,7 +428,6 @@
                             </form>
                         </div>
 
-                        {/* Modal Olvidé Contraseña */}
                         {showForgotModal && (
                             <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                                 <div className="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-xl">
@@ -565,6 +573,11 @@
                                     <img src="Logo La Casa del Alfarero.png" alt="Logo" className="h-16 brightness-200 opacity-30 hidden sm:block" onError={(e)=>{e.target.style.display='none';}} />
                                 </div>
 
+                                {/* Frase Fija Solicitada */}
+                                <div className="bg-blue-50 border-l-4 border-brandBlue p-4 rounded-xl shadow-sm text-sm text-blue-900 font-medium">
+                                    💡 Recuerda orar por tus seguimientos, todo lo que hagas por ellos, dará fruto a través de tu oración.
+                                </div>
+
                                 {/* Versículo Bíblico Diario */}
                                 <div className="bg-amber-50 border-l-4 border-amber-500 p-5 rounded-xl shadow-sm">
                                     <div className="flex items-start gap-3">
@@ -587,6 +600,22 @@
 
                         {activeTab === 'personas' && (
                             <div className="space-y-6">
+                                {/* Versículo de Ánimo Diario con opción de compartir por WhatsApp */}
+                                <div className="bg-emerald-50 border border-emerald-200 p-5 rounded-2xl shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                    <div className="space-y-1">
+                                        <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider">🌟 Versículo de Ánimo para Compartir Hoy</span>
+                                        <p className="text-sm font-serif italic text-emerald-950">"{versiculoHoy.texto}" ({versiculoHoy.cita})</p>
+                                    </div>
+                                    <a 
+                                        href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Hola! Quería compartir este hermoso versículo contigo hoy: "${versiculoHoy.texto}" (${versiculoHoy.cita}) - Iglesia La Casa del Alfarero`)}`} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer" 
+                                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow transition flex items-center gap-2 whitespace-nowrap"
+                                    >
+                                        💬 Compartir por WhatsApp
+                                    </a>
+                                </div>
+
                                 <div className="flex flex-col sm:flex-row gap-3 bg-white p-4 rounded-xl shadow-sm border">
                                     <input 
                                         type="text" 
@@ -615,6 +644,7 @@
                                                     <span className="bg-blue-50 text-brandBlue text-xs font-bold px-2.5 py-1 rounded-full border">{persona.gradoTexto}</span>
                                                 </div>
                                                 <p className="text-xs text-gray-500 mb-1">Canal: {persona.canal}</p>
+                                                {persona.telefono && <p className="text-xs text-gray-600 mb-1">📱 Tel: {persona.telefono}</p>}
                                                 {persona.direccion && (
                                                     <p className="text-xs text-gray-600 mb-1 flex items-center gap-1 truncate">
                                                         📍 <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(persona.direccion)}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-medium">{persona.direccion}</a>
@@ -828,6 +858,13 @@
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
                                         <div>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Género</label>
+                                            <select value={newPersonData.genero} onChange={e=>setNewPersonData({...newPersonData, genero: e.target.value})} className="w-full p-2 border rounded text-sm">
+                                                <option value="femenino">Femenino (Anímala)</option>
+                                                <option value="masculino">Masculino (Anímalo)</option>
+                                            </select>
+                                        </div>
+                                        <div>
                                             <label className="block text-xs font-bold text-gray-700 mb-1">Grado Inicial</label>
                                             <select value={newPersonData.grado} onChange={e=>setNewPersonData({...newPersonData, grado: e.target.value})} className="w-full p-2 border rounded text-sm">
                                                 {Object.entries(gradosMap).map(([num, name]) => (
@@ -835,6 +872,8 @@
                                                 ))}
                                             </select>
                                         </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
                                         <div>
                                             <label className="block text-xs font-bold text-gray-700 mb-1">Canal de Origen</label>
                                             <select value={newPersonData.canal} onChange={e=>setNewPersonData({...newPersonData, canal: e.target.value})} className="w-full p-2 border rounded text-sm">
@@ -843,6 +882,10 @@
                                                 <option value="Google Maps">Google Maps</option>
                                                 <option value="Traspaso">Traspaso</option>
                                             </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Teléfono / WhatsApp</label>
+                                            <input type="text" value={newPersonData.telefono} onChange={e=>setNewPersonData({...newPersonData, telefono: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Ej: 54911xxxxxxxx" />
                                         </div>
                                     </div>
                                     <div>
@@ -892,6 +935,22 @@
 
                                 {!isEditingPerson ? (
                                     <div className="space-y-4 text-sm">
+                                        {/* Botón de WhatsApp dinámico */}
+                                        <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-200 flex flex-col sm:flex-row justify-between items-center gap-3">
+                                            <div>
+                                                <span className="font-bold text-emerald-900 text-xs uppercase block">Contacto Rápido</span>
+                                                <p className="text-gray-700 text-xs">{selectedPerson.telefono ? `Tel: ${selectedPerson.telefono}` : 'Número de teléfono no cargado'}</p>
+                                            </div>
+                                            <a 
+                                                href={`https://api.whatsapp.com/send?phone=${selectedPerson.telefono || ''}&text=${encodeURIComponent(`Hola ${selectedPerson.nombre}! Te escribo de parte de la iglesia La Casa del Alfarero para saludarte y saber cómo estás.`)}`} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer" 
+                                                className={`bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow transition flex items-center gap-2 ${!selectedPerson.telefono ? 'opacity-75' : ''}`}
+                                            >
+                                                💬 {selectedPerson.genero === 'masculino' ? 'Anímalo ahora con un mensajito' : 'Anímala ahora con un mensajito'}
+                                            </a>
+                                        </div>
+
                                         {selectedPerson.direccion && (
                                             <div className="bg-blue-50 p-3 rounded border border-blue-200 flex justify-between items-center">
                                                 <div>
@@ -947,6 +1006,30 @@
                                                         <option key={num} value={num}>Grado {num}: {name}</option>
                                                     ))}
                                                 </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-700 mb-1">Género</label>
+                                                <select 
+                                                    value={selectedPerson.genero || 'femenino'} 
+                                                    onChange={e => setSelectedPerson({...selectedPerson, genero: e.target.value})}
+                                                    className="w-full p-2 border rounded text-xs bg-white"
+                                                >
+                                                    <option value="femenino">Femenino (Anímala)</option>
+                                                    <option value="masculino">Masculino (Anímalo)</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-700 mb-1">Teléfono / WhatsApp</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={selectedPerson.telefono || ''} 
+                                                    onChange={e => setSelectedPerson({...selectedPerson, telefono: e.target.value})}
+                                                    className="w-full p-2 border rounded text-xs"
+                                                    placeholder="Ej: 54911xxxxxxxx"
+                                                />
                                             </div>
                                             <div>
                                                 <label className="block text-xs font-bold text-gray-700 mb-1">Colaborador a Cargo</label>
