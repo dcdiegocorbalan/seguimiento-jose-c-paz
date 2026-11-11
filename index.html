@@ -21,21 +21,59 @@
         }
     </script>
 </head>
-<body class="bg-gray-50 text-gray-800 antialiased">
+<body class="bg-gray-50 text-gray-800 antialiased font-sans">
     <div id="root"></div>
 
     <script type="text/babel">
         function App() {
-            const [userRole, setUserRole] = React.useState('colaborador');
+            // Base de datos de Usuarios
+            const [usuarios, setUsuarios] = React.useState(() => {
+                const saved = localStorage.getItem('alfarero_usuarios');
+                if (saved) return JSON.parse(saved);
+                return [
+                    { id: 1, usuario: "pastor", clave: "1234", nombre: "Pastor / Administración", rol: "pastor" },
+                    { id: 2, usuario: "colaborador", clave: "1234", nombre: "Hermano de Seguimiento", rol: "colaborador" }
+                ];
+            });
+
+            // Estado de Sesión
+            const [currentUser, setCurrentUser] = React.useState(() => {
+                const saved = localStorage.getItem('alfarero_current_user');
+                return saved ? JSON.parse(saved) : null;
+            });
+
+            // Formulario de Login
+            const [loginUserInput, setLoginUserInput] = React.useState('');
+            const [loginPassInput, setLoginPassInput] = React.useState('');
+            const [loginError, setLoginError] = React.useState('');
+
+            // Navegación y Vistas
             const [activeTab, setActiveTab] = React.useState('dashboard');
             const [selectedPerson, setSelectedPerson] = React.useState(null);
             const [searchTerm, setSearchTerm] = React.useState('');
             const [filterGrado, setFilterGrado] = React.useState('todos');
-            const [filterCanal, setFilterCanal] = React.useState('todos');
-            const [showAddModal, setShowAddModal] = React.useState(false);
-            const [newContactModal, setNewContactModal] = React.useState(false);
 
-            // Estado inicial de las personas basado en el documento institucional
+            // Modales
+            const [showNewPersonModal, setShowNewPersonModal] = React.useState(false);
+
+            // Formularios para nuevas entidades
+            const [newPersonData, setNewPersonData] = React.useState({
+                nombre: '',
+                grado: 3,
+                canal: 'Evangelismo',
+                perfil: '',
+                peticionesOracion: '',
+                comentariosPastor: ''
+            });
+
+            const [newUserData, setNewUserData] = React.useState({
+                nombre: '',
+                usuario: '',
+                clave: '',
+                rol: 'colaborador'
+            });
+
+            // Base de datos de Personas
             const [personas, setPersonas] = React.useState(() => {
                 const saved = localStorage.getItem('alfarero_personas');
                 if (saved) return JSON.parse(saved);
@@ -47,19 +85,14 @@
                         gradoTexto: "Grado 6: Congregante",
                         canal: "Visita",
                         visitas: 1,
-                        perfil: "Sensible, estudiosa, busca superarse profesionalmente, muy amable, necesita mucha contención y compañía. Sus luchas más grandes son la depresión, rechazo y soledad. Es humilde, tranquila, pero valora sentirse escuchada. Disfruta de planes tranquilos y charlar sobre las experiencias que tuvo y tienen otros en la fe. Vive sola en un mismo terreno con su madre, cada una con su espacio. Su hermano la ayuda mucho con las reparaciones de la casa. Tiene un hijo que se congrega activamente en otra iglesia y una hija en Luján que aún no se congrega.",
+                        perfil: "Sensible, estudiosa, busca superarse profesionalmente, muy amable, necesita mucha contención y compañía.",
                         pedidosOracion: [
                             { categoria: "Salud", texto: "Presión alta, diabetes." },
-                            { categoria: "Cónyuge", texto: "Respuesta por la actual pareja." },
-                            { categoria: "Estudios", texto: "Enfermería. Aprobar materias difíciles como inglés." },
-                            { categoria: "Trabajo", texto: "Búsqueda laboral." }
+                            { categoria: "Estudios", texto: "Enfermería. Aprobar materias difíciles como inglés." }
                         ],
-                        datosConversacion: "Lucha con la soledad. Reprobó inglés. Está yendo a un particular para ir a recuperatorio. Consiguió un nuevo trabajo.",
                         comentariosPastor: "No presenta un problema de salud grave.",
                         historial: [
-                            { fecha: "Mediodía del 11/10/26", tipo: "Conversación de WhatsApp", pastor: "La contacté para saber cómo estaba luego de no mantener contacto por el accidente. Ese día me dijo que estaba yendo a la iglesia y orando por mi esposo. Me animó más ella en esa ocasión." },
-                            { fecha: "Mañana del 07/11/26", tipo: "Conversación de WhatsApp", pastor: "Stella se siente muy agradecida y acompañada con la iglesia actualmente. Una palabra que llegó a decirme es que le damos “mucha esperanza e inspiración” como matrimonio." },
-                            { fecha: "Tarde del 10/11/26", tipo: "Conversación de WhatsApp", pastor: "Con respecto a su materia de inglés, se siente tranquila de que si no aprueba recupera en diciembre y arreglé apoyarla si así pasa. Como Judith dejó de responderme, le pregunté por ella y me pidió que estemos en oración porque identifica que Judith está en el mismo proceso que está ella hace unos meses, textualmente “no encuentra su lugar”. La anime a que siga animándola. También agendé una visita con ella para el martes si no llueve. La idea es que esté Judith." }
+                            { fecha: "Mediodía del 11/10/26", tipo: "Conversación de WhatsApp", nota: "Contacto positivo." }
                         ]
                     },
                     {
@@ -69,17 +102,10 @@
                         gradoTexto: "Grado 5: Invitada",
                         canal: "Visita",
                         visitas: 0,
-                        perfil: "Amable, proactiva, atareada. Doble ánimo, indecisa con congregarse. Es amiga cercana y vecina de Stella.",
-                        pedidosOracion: [
-                            { categoria: "Salud", texto: "Presión alta, diabetes." }
-                        ],
-                        datosConversacion: "Lucha con la diabetes y establecer hábitos de tratamiento.",
+                        perfil: "Amable, proactiva, atareada. Doble ánimo, indecisa con congregarse. Amiga cercana de Stella.",
+                        pedidosOracion: [{ categoria: "Salud", texto: "Tratamiento de diabetes." }],
                         comentariosPastor: "No presenta un problema de salud grave.",
-                        historial: [
-                            { fecha: "Tarde del 22/07/26", tipo: "Conversación de WhatsApp", pastor: "La contacté para invitarla una vez más a la iglesia. Me comentó que tenía dolor por una extracción de muela. Le dije que estaríamos orando y agradeció." },
-                            { fecha: "Mañana del 28/07/26", tipo: "Conversación de WhatsApp", pastor: "Le dejé un mensaje y un audio. No respondió." },
-                            { fecha: "Tarde del 12/08/26", tipo: "Conversación de WhatsApp", pastor: "Le mandé una invitación a la iglesia. No respondió. No continué insistiendo por lo que dijo que no continuemos mandando si no responden mensajes. Me enfoqué en Stella con el pensamiento de que ella anime a Judith ya que son amigas muy cercanas." }
-                        ]
+                        historial: []
                     },
                     {
                         id: 3,
@@ -88,217 +114,246 @@
                         gradoTexto: "Grado 5: Visitante",
                         canal: "Evangelismo",
                         visitas: 0,
-                        perfil: "Sensible, muy creativa, divertida, alegre, emprendedora. Es conocedora del evangelio, volvió a congregarse en la iglesia de la que se había apartado luego de llegar al compañerismo. Vive sola en un departamento en San Miguel, sus padres viven en José C. Paz muy cerca de la iglesia. Lucha principalmente con la depresión. Estudia AT, emprende y busca una mejor oportunidad laboral. Le apasiona el arte.",
-                        pedidosOracion: [
-                            { categoria: "Trabajo", texto: "Mejor oportunidad laboral." }
-                        ],
-                        datosConversacion: "Consiguió un nuevo trabajo.",
-                        comentariosPastor: "No presenta un problema de salud grave.",
-                        historial: []
-                    },
-                    {
-                        id: 4,
-                        nombre: "Yanina",
-                        grado: 3,
-                        gradoTexto: "Grado 3: Interesada",
-                        canal: "Evangelismo",
-                        visitas: 0,
-                        perfil: "Muy tranquila, apacible, tal vez resignada ante las dificultades, pero muy abierta a escuchar palabras de aliento y esperanza.",
-                        pedidosOracion: [
-                            { categoria: "Salud / Hija", texto: "Su hija Justina tiene que operarse la rodilla. Aún esperan confirmación de turno para diciembre." }
-                        ],
-                        datosConversacion: "",
-                        comentariosPastor: "No presenta un problema de salud grave.",
-                        historial: []
-                    },
-                    {
-                        id: 5,
-                        nombre: "Paola Ramos",
-                        grado: 3,
-                        gradoTexto: "Grado 3: Interesada",
-                        canal: "Evangelismo",
-                        visitas: 0,
-                        perfil: "Sincera, directa, extrovertida. Entra fácilmente en confianza. Es conocedora del evangelio, está apartada pero siente nostalgia por un pasado juvenil activo en las actividades de la iglesia. Tal vez esté decepcionada con personas de la iglesia. Lucha para mantener la economía de su hogar con tres hijos y un marido ausente.",
-                        pedidosOracion: [
-                            { categoria: "Hijos", texto: "Sus hijos: Skyler, Owen y Aiton." }
-                        ],
-                        datosConversacion: "Preguntar por sus hijos y su emprendimiento.",
-                        comentariosPastor: "No presenta un problema de salud grave.",
-                        historial: []
-                    },
-                    {
-                        id: 6,
-                        nombre: "Leila",
-                        grado: 3,
-                        gradoTexto: "Grado 3: Interesada",
-                        canal: "Visita",
-                        visitas: 0,
-                        perfil: "Muy amable, madre joven de un niño. Abierta a escuchar con interés y curiosidad. Conoce de Dios pero nunca se congregó en una iglesia, es de familia católica.",
-                        pedidosOracion: [
-                            { categoria: "Adicciones", texto: "Su hermano Joel Almaraz." }
-                        ],
-                        datosConversacion: "",
+                        perfil: "Sensible, muy creativa, divertida, alegre. Volvió a congregarse en la iglesia.",
+                        pedidosOracion: [{ categoria: "Trabajo", texto: "Mejor oportunidad laboral." }],
                         comentariosPastor: "No presenta un problema de salud grave.",
                         historial: []
                     }
                 ];
             });
 
+            // Guardar en localStorage
             React.useEffect(() => {
                 localStorage.setItem('alfarero_personas', JSON.stringify(personas));
             }, [personas]);
 
-            // Filtrado de personas
+            React.useEffect(() => {
+                localStorage.setItem('alfarero_usuarios', JSON.stringify(usuarios));
+            }, [usuarios]);
+
+            React.useEffect(() => {
+                if (currentUser) {
+                    localStorage.setItem('alfarero_current_user', JSON.stringify(currentUser));
+                } else {
+                    localStorage.removeItem('alfarero_current_user');
+                }
+            }, [currentUser]);
+
+            // Handler Login
+            const handleLogin = (e) => {
+                e.preventDefault();
+                const userFound = usuarios.find(
+                    u => u.usuario.toLowerCase() === loginUserInput.trim().toLowerCase() && u.clave === loginPassInput.trim()
+                );
+
+                if (userFound) {
+                    setCurrentUser(userFound);
+                    setLoginError('');
+                    setLoginUserInput('');
+                    setLoginPassInput('');
+                } else {
+                    setLoginError('Usuario o contraseña incorrectos.');
+                }
+            };
+
+            const handleLogout = () => {
+                setCurrentUser(null);
+                setActiveTab('dashboard');
+            };
+
+            // Handler Crear Persona
+            const handleCreatePerson = (e) => {
+                e.preventDefault();
+                if (!newPersonData.nombre.trim()) return;
+
+                const newEntry = {
+                    id: Date.now(),
+                    nombre: newPersonData.nombre,
+                    grado: parseInt(newPersonData.grado),
+                    gradoTexto: `Grado ${newPersonData.grado}: ${gradosMap[newPersonData.grado]}`,
+                    canal: newPersonData.canal,
+                    visitas: 0,
+                    perfil: newPersonData.perfil || 'Sin datos de perfil.',
+                    pedidosOracion: newPersonData.peticionesOracion 
+                        ? [{ categoria: "General", texto: newPersonData.peticionesOracion }] 
+                        : [],
+                    comentariosPastor: newPersonData.comentariosPastor || 'Sin observaciones.',
+                    historial: []
+                };
+
+                setPersonas([newEntry, ...personas]);
+                setShowNewPersonModal(false);
+                setNewPersonData({ nombre: '', grado: 3, canal: 'Evangelismo', perfil: '', peticionesOracion: '', comentariosPastor: '' });
+            };
+
+            // Handler Crear Usuario
+            const handleCreateUser = (e) => {
+                e.preventDefault();
+                if (!newUserData.usuario || !newUserData.clave || !newUserData.nombre) return;
+
+                const newUser = {
+                    id: Date.now(),
+                    nombre: newUserData.nombre,
+                    usuario: newUserData.usuario.toLowerCase().trim(),
+                    clave: newUserData.clave,
+                    rol: newUserData.rol
+                };
+
+                setUsuarios([...usuarios, newUser]);
+                setNewUserData({ nombre: '', usuario: '', clave: '', rol: 'colaborador' });
+                alert('¡Usuario creado con éxito!');
+            };
+
+            const gradosMap = {
+                1: "Evangelizada", 2: "Contactada", 3: "Interesada", 4: "Dispuesta",
+                5: "Invitada", 6: "Congregante", 7: "Miembro", 8: "Servidor"
+            };
+
             const filteredPersonas = personas.filter(p => {
                 const matchName = p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || p.perfil.toLowerCase().includes(searchTerm.toLowerCase());
                 const matchGrado = filterGrado === 'todos' || p.grado.toString() === filterGrado;
-                const matchCanal = filterCanal === 'todos' || p.canal.toLowerCase() === filterCanal.toLowerCase();
-                return matchName && matchGrado && matchCanal;
+                return matchName && matchGrado;
             });
 
-            const gradosList = [
-                { grado: 1, nombre: "Grado 1: Evangelizada" },
-                { grado: 2, nombre: "Grado 2: Contactada" },
-                { grado: 3, nombre: "Grado 3: Interesada" },
-                { grado: 4, nombre: "Grado 4: Dispuesta" },
-                { grado: 5, nombre: "Grado 5: Invitada" },
-                { grado: 6, nombre: "Grado 6: Congregante" },
-                { grado: 7, nombre: "Grado 7: Miembro" },
-                { grado: 8, nombre: "Grado 8: Servidor" },
-            ];
+            // 1. PANTALLA DE LOGIN SI NO HAY SESIÓN INICIADA
+            if (!currentUser) {
+                return (
+                    <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center p-4">
+                        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-gray-200 p-8 space-y-6">
+                            <div className="text-center space-y-3">
+                                <img src="Logo La Casa del Alfarero.png" alt="Logo La Casa del Alfarero" className="h-20 mx-auto object-contain" onError={(e)=>{e.target.style.display='none';}} />
+                                <h1 className="text-2xl font-bold text-gray-900">La Casa del Alfarero</h1>
+                                <p className="text-xs font-semibold text-brandRed uppercase tracking-wider">Sistema de Seguimiento Pastoral</p>
+                            </div>
 
+                            <form onSubmit={handleLogin} className="space-y-4">
+                                {loginError && (
+                                    <div className="bg-red-50 text-red-700 text-xs p-3 rounded-lg border border-red-200 font-semibold">
+                                        {loginError}
+                                    </div>
+                                )}
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Usuario</label>
+                                    <input 
+                                        type="text" 
+                                        required
+                                        placeholder="Ej: pastor o colaborador"
+                                        value={loginUserInput}
+                                        onChange={(e) => setLoginUserInput(e.target.value)}
+                                        className="w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brandRed"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Contraseña</label>
+                                    <input 
+                                        type="password" 
+                                        required
+                                        placeholder="••••••••"
+                                        value={loginPassInput}
+                                        onChange={(e) => setLoginPassInput(e.target.value)}
+                                        className="w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brandRed"
+                                    />
+                                </div>
+                                <button type="submit" className="w-full bg-brandRed text-white font-bold py-3 rounded-lg hover:bg-red-700 transition shadow">
+                                    Ingresar a la Plataforma
+                                </button>
+                            </form>
+
+                            <div className="bg-gray-50 p-3 rounded-lg border text-xs text-gray-500 space-y-1">
+                                <p className="font-bold text-gray-700">Cuentas de prueba:</p>
+                                <p>• Admin: <span className="font-semibold text-gray-800">pastor</span> / clave: <span className="font-semibold text-gray-800">1234</span></p>
+                                <p>• Colaborador: <span className="font-semibold text-gray-800">colaborador</span> / clave: <span className="font-semibold text-gray-800">1234</span></p>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            // 2. PANTALLA PRINCIPAL
             return (
-                <div className="min-h-screen flex flex-col bg-gray-100">
+                <div className="min-h-screen flex flex-col bg-gray-100 relative pb-20">
                     {/* Header */}
                     <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-30">
                         <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col md:flex-row justify-between items-center gap-4">
                             <div className="flex items-center gap-3">
-                                <img src="Logo La Casa del Alfarero.png" alt="La Casa del Alfarero" className="h-12 object-contain" onError={(e)=>{e.target.style.display='none';}} />
+                                <img src="Logo La Casa del Alfarero.png" alt="Logo" className="h-10 object-contain" onError={(e)=>{e.target.style.display='none';}} />
                                 <div>
-                                    <h1 className="text-lg font-bold text-gray-900 leading-tight">La Casa del Alfarero</h1>
-                                    <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Ministerio de Seguimiento</p>
+                                    <h1 className="text-base font-bold text-gray-900 leading-tight">La Casa del Alfarero</h1>
+                                    <p className="text-xs text-gray-500 font-semibold">Seguimiento • {currentUser.nombre}</p>
                                 </div>
                             </div>
 
-                            {/* Navegación y Rol */}
                             <div className="flex items-center gap-3 flex-wrap justify-center">
-                                <nav className="flex bg-gray-100 p-1 rounded-lg text-sm font-medium">
-                                    <button onClick={() => setActiveTab('dashboard')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'dashboard' ? 'bg-brandRed text-white shadow' : 'text-gray-600 hover:text-gray-900'}`}>Dashboard</button>
-                                    <button onClick={() => setActiveTab('personas')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'personas' ? 'bg-brandRed text-white shadow' : 'text-gray-600 hover:text-gray-900'}`}>Personas</button>
-                                    <button onClick={() => setActiveTab('oracion')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'oracion' ? 'bg-brandRed text-white shadow' : 'text-gray-600 hover:text-gray-900'}`}>Intercesión</button>
-                                    <button onClick={() => setActiveTab('grados')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'grados' ? 'bg-brandRed text-white shadow' : 'text-gray-600 hover:text-gray-900'}`}>Criterios</button>
+                                <nav className="flex bg-gray-100 p-1 rounded-lg text-xs font-semibold">
+                                    <button onClick={() => setActiveTab('dashboard')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'dashboard' ? 'bg-brandRed text-white shadow' : 'text-gray-600'}`}>Dashboard</button>
+                                    <button onClick={() => setActiveTab('personas')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'personas' ? 'bg-brandRed text-white shadow' : 'text-gray-600'}`}>Personas</button>
+                                    <button onClick={() => setActiveTab('oracion')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'oracion' ? 'bg-brandRed text-white shadow' : 'text-gray-600'}`}>Intercesión</button>
+                                    {currentUser.rol === 'pastor' && (
+                                        <button onClick={() => setActiveTab('usuarios')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'usuarios' ? 'bg-brandBlue text-white shadow' : 'text-gray-600'}`}>Usuarios Admin</button>
+                                    )}
                                 </nav>
 
-                                <div className="flex items-center bg-gray-200 p-1 rounded-lg">
-                                    <span className="text-xs font-semibold px-2 text-gray-600">Rol:</span>
-                                    <button 
-                                        onClick={() => setUserRole(userRole === 'colaborador' ? 'pastor' : 'colaborador')} 
-                                        className={`text-xs px-3 py-1 rounded font-bold transition ${userRole === 'pastor' ? 'bg-brandBlue text-white shadow' : 'bg-white text-gray-700'}`}>
-                                        {userRole === 'pastor' ? 'Pastor / Admin' : 'Colaborador'}
-                                    </button>
-                                </div>
+                                <button onClick={handleLogout} className="text-xs text-gray-500 hover:text-red-600 font-semibold px-2 py-1">
+                                    Cerrar Sesión ➔
+                                </button>
                             </div>
                         </div>
                     </header>
 
-                    {/* Contenido Principal */}
+                    {/* Botón Flotante Siempre Visible */}
+                    <button 
+                        onClick={() => setShowNewPersonModal(true)}
+                        className="fixed bottom-6 right-6 bg-brandRed text-white font-bold px-5 py-3 rounded-full shadow-2xl hover:bg-red-700 transition flex items-center gap-2 z-40"
+                    >
+                        <span className="text-xl leading-none">+</span> Nueva Ficha
+                    </button>
+
                     <main className="max-w-7xl mx-auto px-4 py-6 flex-1 w-full">
+                        {/* TAB DASHBOARD */}
                         {activeTab === 'dashboard' && (
                             <div className="space-y-6">
-                                <div className="bg-gradient-to-r from-brandBlue to-blue-900 rounded-2xl p-6 text-white shadow-lg">
-                                    <h2 className="text-2xl font-bold mb-2">Panel de Seguimiento Ministerial</h2>
-                                    <p className="text-blue-100 text-sm max-w-2xl">
-                                        "Recordar todo lo relacionado a las necesidades, problemas, metas y condiciones de las almas para mantener una oración consciente y una conversación activa."
-                                    </p>
+                                <div className="bg-gradient-to-r from-brandBlue to-blue-900 rounded-2xl p-6 text-white shadow-md flex justify-between items-center">
+                                    <div>
+                                        <h2 className="text-2xl font-bold mb-1">Bienvenido, {currentUser.nombre}</h2>
+                                        <p className="text-blue-100 text-xs">Registro y seguimiento consciente de las almas.</p>
+                                    </div>
+                                    <img src="Logo La Casa del Alfarero.png" alt="Logo" className="h-16 brightness-200 opacity-30 hidden sm:block" onError={(e)=>{e.target.style.display='none';}} />
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-                                        <p className="text-sm text-gray-500 font-medium">Total en Seguimiento</p>
-                                        <p className="text-3xl font-extrabold text-brandRed mt-1">{personas.length}</p>
-                                    </div>
-                                    <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-                                        <p className="text-sm text-gray-500 font-medium">Grado 3 (Interesadas)</p>
-                                        <p className="text-3xl font-extrabold text-brandBlue mt-1">{personas.filter(p => p.grado === 3).length}</p>
-                                    </div>
-                                    <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-                                        <p className="text-sm text-gray-500 font-medium">Grado 5 y 6 (Invitadas/Congregantes)</p>
-                                        <p className="text-3xl font-extrabold text-emerald-600 mt-1">{personas.filter(p => p.grado === 5 || p.grado === 6).length}</p>
-                                    </div>
-                                    <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-                                        <p className="text-sm text-gray-500 font-medium">Pedidos de Oración Activos</p>
-                                        <p className="text-3xl font-extrabold text-amber-600 mt-1">{personas.reduce((acc, p) => acc + p.pedidosOracion.length, 0)}</p>
-                                    </div>
-                                </div>
-
-                                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                                    <h3 className="text-lg font-bold text-gray-900 mb-4">Embudo de Seguimiento por Grados</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                                        {gradosList.map(g => {
-                                            const count = personas.filter(p => p.grado === g.grado).length;
-                                            return (
-                                                <div key={g.grado} className="bg-gray-50 p-4 rounded-lg border border-gray-200 flex justify-between items-center">
-                                                    <div>
-                                                        <span className="text-xs font-bold text-gray-500 uppercase">Grado {g.grado}</span>
-                                                        <h4 className="font-semibold text-gray-800 text-sm">{g.nombre.split(': ')[1]}</h4>
-                                                    </div>
-                                                    <span className="bg-brandRed text-white font-bold w-8 h-8 rounded-full flex items-center justify-center text-sm shadow">
-                                                        {count}
-                                                    </span>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <div className="bg-white p-5 rounded-xl shadow-sm border"><p className="text-xs text-gray-500 font-semibold uppercase">Total Personas</p><p className="text-3xl font-extrabold text-brandRed mt-1">{personas.length}</p></div>
+                                    <div className="bg-white p-5 rounded-xl shadow-sm border"><p className="text-xs text-gray-500 font-semibold uppercase">En Proceso (Grado 3-5)</p><p className="text-3xl font-extrabold text-brandBlue mt-1">{personas.filter(p => p.grado >= 3 && p.grado <= 5).length}</p></div>
+                                    <div className="bg-white p-5 rounded-xl shadow-sm border"><p className="text-xs text-gray-500 font-semibold uppercase">Congregantes / Miembros</p><p className="text-3xl font-extrabold text-emerald-600 mt-1">{personas.filter(p => p.grado >= 6).length}</p></div>
                                 </div>
                             </div>
                         )}
 
+                        {/* TAB PERSONAS */}
                         {activeTab === 'personas' && (
                             <div className="space-y-6">
-                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                                    <div className="flex flex-wrap gap-3 items-center w-full sm:w-auto flex-1">
-                                        <input 
-                                            type="text" 
-                                            placeholder="Buscar por nombre o perfil..." 
-                                            value={searchTerm} 
-                                            onChange={(e) => setSearchTerm(e.target.value)}
-                                            className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brandRed w-full sm:w-64"
-                                        />
-                                        <select 
-                                            value={filterGrado} 
-                                            onChange={(e) => setFilterGrado(e.target.value)}
-                                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
-                                        >
-                                            <option value="todos">Todos los Grados</option>
-                                            {gradosList.map(g => (
-                                                <option key={g.grado} value={g.grado.toString()}>{g.nombre}</option>
-                                            ))}
-                                        </select>
-                                    </div>
+                                <div className="flex gap-3 bg-white p-4 rounded-xl shadow-sm border">
+                                    <input 
+                                        type="text" 
+                                        placeholder="Buscar persona o perfil..." 
+                                        value={searchTerm} 
+                                        onChange={(e) => setSearchTerm(e.target.value)} 
+                                        className="px-4 py-2 border rounded-lg text-sm w-full" 
+                                    />
                                 </div>
-
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {filteredPersonas.map(persona => (
-                                        <div key={persona.id} className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between overflow-hidden hover:shadow-md transition">
-                                            <div className="p-5 border-b border-gray-100">
+                                        <div key={persona.id} className="bg-white rounded-xl shadow-sm border flex flex-col justify-between overflow-hidden">
+                                            <div className="p-5 border-b">
                                                 <div className="flex justify-between items-start mb-2">
                                                     <h3 className="text-lg font-bold text-gray-900">{persona.nombre}</h3>
-                                                    <span className="bg-blue-50 text-brandBlue text-xs font-bold px-2.5 py-1 rounded-full border border-blue-200">
-                                                        {persona.gradoTexto}
-                                                    </span>
+                                                    <span className="bg-blue-50 text-brandBlue text-xs font-bold px-2.5 py-1 rounded-full border">{persona.gradoTexto}</span>
                                                 </div>
-                                                <p className="text-xs text-gray-500 mb-3 font-medium">Canal: {persona.canal} {persona.visitas > 0 ? `• Visitas: ${persona.visitas}` : ''}</p>
+                                                <p className="text-xs text-gray-500 mb-3">Canal: {persona.canal}</p>
                                                 <p className="text-sm text-gray-600 line-clamp-3">{persona.perfil}</p>
                                             </div>
-
-                                            <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
-                                                <span className="text-xs text-gray-500 font-semibold">{persona.pedidosOracion.length} pedidos de oración</span>
-                                                <button 
-                                                    onClick={() => setSelectedPerson(persona)}
-                                                    className="text-xs bg-brandRed text-white font-semibold px-3 py-1.5 rounded-lg hover:bg-red-700 transition"
-                                                >
-                                                    Ver Ficha Completa
-                                                </button>
+                                            <div className="px-5 py-3 bg-gray-50 flex justify-between items-center">
+                                                <span className="text-xs text-gray-500">{persona.pedidosOracion.length} pedidos</span>
+                                                <button onClick={() => setSelectedPerson(persona)} className="text-xs bg-brandRed text-white font-semibold px-3 py-1.5 rounded-lg">Ver Ficha</button>
                                             </div>
                                         </div>
                                     ))}
@@ -306,116 +361,70 @@
                             </div>
                         )}
 
+                        {/* TAB INTERCESIÓN */}
                         {activeTab === 'oracion' && (
-                            <div className="space-y-6">
-                                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                                    <h2 className="text-xl font-bold text-gray-900 mb-2">Panel de Intercesión Comunitaria</h2>
-                                    <p className="text-gray-600 text-sm mb-6">Lista centralizada de motivos de oración extraídos de las fichas para mantener una oración consciente.</p>
+                            <div className="bg-white p-6 rounded-xl shadow-sm border space-y-4">
+                                <h2 className="text-xl font-bold text-gray-900">Motivos de Oración Activos</h2>
+                                {personas.map(persona => persona.pedidosOracion.length > 0 && (
+                                    <div key={persona.id} className="border rounded-lg p-4 bg-gray-50">
+                                        <h4 className="font-bold text-brandBlue mb-1">{persona.nombre}</h4>
+                                        <ul className="list-disc list-inside text-sm text-gray-700">
+                                            {persona.pedidosOracion.map((p, idx) => (<li key={idx}><strong>{p.categoria}:</strong> {p.texto}</li>))}
+                                        </ul>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
 
-                                    <div className="space-y-4">
-                                        {personas.map(persona => (
-                                            persona.pedidosOracion.length > 0 && (
-                                                <div key={persona.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                                                    <div className="flex justify-between items-center mb-2">
-                                                        <h4 className="font-bold text-brandBlue text-base">{persona.nombre}</h4>
-                                                        <span className="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded font-medium">{persona.gradoTexto}</span>
-                                                    </div>
-                                                    <ul className="list-disc list-inside space-y-1 text-sm text-gray-700">
-                                                        {persona.pedidosOracion.map((p, idx) => (
-                                                            <li key={idx}><span className="font-semibold">{p.categoria}:</span> {p.texto}</li>
-                                                        ))}
-                                                    </ul>
+                        {/* TAB USUARIOS (SOLO ADMINISTRADOR/PASTOR) */}
+                        {activeTab === 'usuarios' && currentUser.rol === 'pastor' && (
+                            <div className="space-y-6">
+                                <div className="bg-white p-6 rounded-xl shadow-sm border space-y-4">
+                                    <h2 className="text-xl font-bold text-gray-900">Crear Nuevo Usuario / Hermano</h2>
+                                    <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Nombre Completo</label>
+                                            <input type="text" required value={newUserData.nombre} onChange={e=>setNewUserData({...newUserData, nombre: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Ej: Hermano Juan" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Nombre de Usuario (para Login)</label>
+                                            <input type="text" required value={newUserData.usuario} onChange={e=>setNewUserData({...newUserData, usuario: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Ej: juan" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Contraseña</label>
+                                            <input type="password" required value={newUserData.clave} onChange={e=>setNewUserData({...newUserData, clave: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="••••••••" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Rol</label>
+                                            <select value={newUserData.rol} onChange={e=>setNewUserData({...newUserData, rol: e.target.value})} className="w-full p-2 border rounded text-sm">
+                                                <option value="colaborador">Hermano Colaborador</option>
+                                                <option value="pastor">Pastor / Administrador</option>
+                                            </select>
+                                        </div>
+                                        <div className="md:col-span-2">
+                                            <button type="submit" className="bg-brandBlue text-white font-bold px-4 py-2 rounded text-sm hover:bg-blue-900 transition">
+                                                + Registrar Usuario
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+
+                                <div className="bg-white p-6 rounded-xl shadow-sm border">
+                                    <h3 className="text-lg font-bold text-gray-900 mb-4">Usuarios Habilitados</h3>
+                                    <div className="divide-y">
+                                        {usuarios.map(u => (
+                                            <div key={u.id} className="py-3 flex justify-between items-center text-sm">
+                                                <div>
+                                                    <p className="font-bold text-gray-800">{u.nombre}</p>
+                                                    <p className="text-xs text-gray-500">Usuario: {u.usuario}</p>
                                                 </div>
-                                            )
+                                                <span className="bg-gray-100 text-gray-700 text-xs px-3 py-1 rounded-full font-bold uppercase">{u.rol}</span>
+                                            </div>
                                         ))}
                                     </div>
                                 </div>
                             </div>
                         )}
-
-                        {activeTab === 'grados' && (
-                            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-4">
-                                <h2 className="text-xl font-bold text-gray-900 mb-4">Criterios Institucionales de Seguimiento</h2>
-                                <div className="space-y-3">
-                                    <div className="p-3 bg-gray-50 rounded-lg border"><strong>Grado 1 (Evangelizada):</strong> La persona escucha el mensaje y no lo rechaza.</div>
-                                    <div className="p-3 bg-gray-50 rounded-lg border"><strong>Grado 2 (Contactada):</strong> La persona brinda sus datos de contacto.</div>
-                                    <div className="p-3 bg-gray-50 rounded-lg border"><strong>Grado 3 (Interesada):</strong> Responde el mensaje y se mantiene conversación. Se invita a la iglesia.</div>
-                                    <div className="p-3 bg-gray-50 rounded-lg border"><strong>Grado 4 (Dispuesta):</strong> Quiere ir a la iglesia pero por causa de fuerza mayor no puede (tiempo, trabajo, dudas).</div>
-                                    <div className="p-3 bg-gray-50 rounded-lg border"><strong>Grado 5 (Invitada):</strong> Logra llegar a la iglesia y conocerla.</div>
-                                    <div className="p-3 bg-gray-50 rounded-lg border"><strong>Grado 6 (Congregante):</strong> Decide congregarse, requiere acompañamiento en su proceso de adaptación.</div>
-                                    <div className="p-3 bg-gray-50 rounded-lg border"><strong>Grado 7 (Miembro):</strong> Se congrega durante seis meses de forma decidida.</div>
-                                    <div className="p-3 bg-gray-50 rounded-lg border"><strong>Grado 8 (Servidor):</strong> Aspiración final, se suma a pescar almas.</div>
-                                </div>
-                            </div>
-                        )}
                     </main>
 
-                    {/* Modal de Ficha Individual */}
-                    {selectedPerson && (
-                        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-                            <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 space-y-6">
-                                <div className="flex justify-between items-start border-b pb-4">
-                                    <div>
-                                        <h2 className="text-2xl font-bold text-gray-900">{selectedPerson.nombre}</h2>
-                                        <p className="text-sm font-semibold text-brandBlue">{selectedPerson.gradoTexto} • Canal: {selectedPerson.canal}</p>
-                                    </div>
-                                    <button onClick={() => setSelectedPerson(null)} className="text-gray-400 hover:text-gray-600 font-bold text-xl">✕</button>
-                                </div>
-
-                                <div className="space-y-4 text-sm">
-                                    <div>
-                                        <h4 className="font-bold text-gray-700 mb-1">Perfil de la Persona</h4>
-                                        <p className="text-gray-600 bg-gray-50 p-3 rounded-lg">{selectedPerson.perfil}</p>
-                                    </div>
-
-                                    <div>
-                                        <h4 className="font-bold text-gray-700 mb-1">Pedidos de Oración</h4>
-                                        <div className="space-y-1">
-                                            {selectedPerson.pedidosOracion.map((p, idx) => (
-                                                <div key={idx} className="bg-amber-50 text-amber-900 p-2 rounded border border-amber-200">
-                                                    <span className="font-bold">{p.categoria}:</span> {p.texto}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {selectedPerson.historial.length > 0 && (
-                                        <div>
-                                            <h4 className="font-bold text-gray-700 mb-2">Bitácora de Contactos</h4>
-                                            <div className="space-y-2">
-                                                {selectedPerson.historial.map((h, idx) => (
-                                                    <div key={idx} className="bg-gray-50 p-3 rounded-lg border text-xs space-y-1">
-                                                        <div className="flex justify-between font-bold text-gray-700">
-                                                            <span>{h.fecha}</span>
-                                                            <span className="text-brandRed">{h.tipo}</span>
-                                                        </div>
-                                                        <p className="text-gray-600">{h.pastor}</p>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {userRole === 'pastor' && (
-                                        <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                                            <h4 className="font-bold text-brandBlue text-xs uppercase mb-1">Comentarios del Pastor</h4>
-                                            <p className="text-gray-700">{selectedPerson.comentariosPastor}</p>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="flex justify-end pt-4 border-t">
-                                    <button onClick={() => setSelectedPerson(null)} className="bg-gray-800 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-gray-900 transition">Cerrar Ficha</button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            );
-        }
-
-        ReactDOM.render(<App />, document.getElementById('root'));
-    </script>
-</body>
-</html>
-
+                    {/* MODAL CREAR NUEVA
