@@ -29,7 +29,7 @@
 
     <script type="text/babel">
         // ==========================================
-        // CONFIGURACIÓN DE FIREBASE (TUS CREDENCIALES)
+        // CONFIGURACIÓN DE FIREBASE
         // ==========================================
         const firebaseConfig = {
             apiKey: "AIzaSyCpy8H7bwtRPumLGmmDaTdouxrEPu9MPSY",
@@ -103,16 +103,28 @@
             const [editingPasswordUserId, setEditingPasswordUserId] = React.useState(null);
             const [newPasswordValue, setNewPasswordValue] = React.useState('');
 
-            // Sincronización en tiempo real con Firestore
+            // Sincronización y Migración Automática con Firestore
             React.useEffect(() => {
                 const unsubUsuarios = db.collection('usuarios').onSnapshot(snapshot => {
                     const lista = snapshot.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
                     if (lista.length === 0) {
-                        const iniciales = [
-                            { id: 1, usuario: "pastor", clave: "1234", nombre: "Pastor / Administración", rol: "pastor", debeCambiarClave: false },
-                            { id: 2, usuario: "tatiana", clave: "1234", nombre: "Tatiana Cariddi", rol: "colaborador", debeCambiarClave: false }
-                        ];
-                        iniciales.forEach(u => db.collection('usuarios').add(u));
+                        // Migrar usuarios locales si existen, sino poner por defecto
+                        const savedLocalUsers = localStorage.getItem('alfarero_usuarios');
+                        if (savedLocalUsers) {
+                            try {
+                                const localUsers = JSON.parse(savedLocalUsers);
+                                localUsers.forEach(u => {
+                                    const { idDoc, ...uData } = u;
+                                    db.collection('usuarios').add(uData);
+                                });
+                            } catch (e) { console.error(e); }
+                        } else {
+                            const iniciales = [
+                                { id: 1, usuario: "pastor", clave: "1234", nombre: "Pastor / Administración", rol: "pastor", debeCambiarClave: false },
+                                { id: 2, usuario: "tatiana", clave: "1234", nombre: "Tatiana Cariddi", rol: "colaborador", debeCambiarClave: false }
+                            ];
+                            iniciales.forEach(u => db.collection('usuarios').add(u));
+                        }
                     } else {
                         setUsuarios(lista);
                     }
@@ -120,7 +132,24 @@
 
                 const unsubPersonas = db.collection('personas').onSnapshot(snapshot => {
                     const lista = snapshot.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
-                    setPersonas(lista);
+                    if (lista.length === 0) {
+                        // MIGRACIÓN AUTOMÁTICA DE FICHAS LOCALES A LA NUBE
+                        const savedLocalPersonas = localStorage.getItem('alfarero_personas');
+                        if (savedLocalPersonas) {
+                            try {
+                                const localPersonas = JSON.parse(savedLocalPersonas);
+                                if (localPersonas && localPersonas.length > 0) {
+                                    console.log("Migrando fichas locales a Firebase...");
+                                    localPersonas.forEach(p => {
+                                        const { idDoc, ...dataToUpload } = p;
+                                        db.collection('personas').add(dataToUpload);
+                                    });
+                                }
+                            } catch (e) { console.error("Error al migrar fichas locales:", e); }
+                        }
+                    } else {
+                        setPersonas(lista);
+                    }
                 });
 
                 const unsubSolicitudes = db.collection('solicitudesClave').onSnapshot(snapshot => {
@@ -336,7 +365,7 @@
                 return matchName && matchGrado;
             });
 
-            // Versículos de ánimo rotativos diarios para compartir con las almas
+            // Versículos de ánimo rotativos diarios
             const versiculosDeAnimo = [
                 { texto: "Jehová está cerca de los quebrantados de corazón; y salva a los contritos de espíritu.", cita: "Salmos 34:18" },
                 { texto: "Echa sobre Jehová tu carga, y él te sustentará; no dejará para siempre caído al justo.", cita: "Salmos 55:22" },
@@ -355,7 +384,7 @@
                     <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center">
                         <div className="text-center space-y-3">
                             <div className="w-10 h-10 border-4 border-brandRed border-t-transparent rounded-full animate-spin mx-auto"></div>
-                            <p className="text-xs font-bold text-gray-600 uppercase tracking-wider">Conectando con la nube...</p>
+                            <p className="text-xs font-bold text-gray-600 uppercase tracking-wider">Migrando y conectando con la nube...</p>
                         </div>
                     </div>
                 );
@@ -575,7 +604,7 @@
 
                         {activeTab === 'personas' && (
                             <div className="space-y-6">
-                                {/* Versículo de Ánimo Diario para las Almas con opción de compartir por WhatsApp */}
+                                {/* Versículo de Ánimo Diario */}
                                 <div className="bg-emerald-50 border border-emerald-200 p-5 rounded-2xl shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                     <div className="space-y-1">
                                         <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider">🌟 Versículo de Ánimo para Compartir Hoy</span>
