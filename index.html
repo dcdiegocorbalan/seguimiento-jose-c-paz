@@ -134,6 +134,20 @@
                 ];
             });
 
+            // Versículos rotativos diarios (basado en el día del año)
+            const versiculosDiarios = [
+                { texto: "La mies es mucha, mas los obreros pocos. Rogad, pues, al Señor de la mies, que envíe obreros a su mies.", cita: "Mateo 9:37-38" },
+                { texto: "¿No decís vosotros: Aún faltan cuatro meses para que llegue la siega? He aquí os digo: Alzad vuestros ojos y mirad los campos, porque ya están blancos para la siega.", cita: "Juan 4:35" },
+                { texto: "Id por todo el mundo y predicad el evangelio a toda criatura.", cita: "Marcos 16:15" },
+                { texto: "Y los que fueron esparcidos iban por todas partes anunciando el evangelio.", cita: "Hechos 8:4" },
+                { texto: "El fruto del justo es árbol de vida; y el que gana almas es sabio.", cita: "Proverbios 11:30" },
+                { texto: "Y de hito en hito miraba Cornelio, y atemorizado dijo: ¿Qué es, Señor? Y le dijo: Tus oraciones y tus limas han subido para memoria delante de Dios.", cita: "Hechos 10:4" },
+                { texto: "Buscad primeramente el reino de Dios y su justicia, y todas estas cosas os serán añadidas.", cita: "Mateo 6:33" }
+            ];
+
+            const diaDelAnio = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
+            const versiculoHoy = versiculosDiarios[diaDelAnio % versiculosDiarios.length];
+
             React.useEffect(() => {
                 localStorage.setItem('alfarero_personas', JSON.stringify(personas));
             }, [personas]);
@@ -503,14 +517,17 @@
                                     <button onClick={() => setActiveTab('personas')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'personas' ? 'bg-brandRed text-white shadow' : 'text-gray-600'}`}>Personas</button>
                                     <button onClick={() => setActiveTab('oracion')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'oracion' ? 'bg-brandRed text-white shadow' : 'text-gray-600'}`}>Intercesión</button>
                                     {currentUser.rol === 'pastor' && (
-                                        <button onClick={() => setActiveTab('usuarios')} className={`px-3 py-1.5 rounded-md transition relative ${activeTab === 'usuarios' ? 'bg-brandBlue text-white shadow' : 'text-gray-600'}`}>
-                                            Usuarios Admin
-                                            {solicitudesClave.filter(s => !s.atendida).length > 0 && (
-                                                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
-                                                    {solicitudesClave.filter(s => !s.atendida).length}
-                                                </span>
-                                            )}
-                                        </button>
+                                        <>
+                                            <button onClick={() => setActiveTab('colaboradores')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'colaboradores' ? 'bg-brandBlue text-white shadow' : 'text-gray-600'}`}>Colaboradores</button>
+                                            <button onClick={() => setActiveTab('usuarios')} className={`px-3 py-1.5 rounded-md transition relative ${activeTab === 'usuarios' ? 'bg-brandBlue text-white shadow' : 'text-gray-600'}`}>
+                                                Usuarios Admin
+                                                {solicitudesClave.filter(s => !s.atendida).length > 0 && (
+                                                    <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                                                        {solicitudesClave.filter(s => !s.atendida).length}
+                                                    </span>
+                                                )}
+                                            </button>
+                                        </>
                                     )}
                                 </nav>
                                 <button onClick={handleLogout} className="text-xs text-gray-500 hover:text-red-600 font-semibold px-2 py-1">
@@ -537,6 +554,18 @@
                                         <p className="text-blue-100 text-xs">Registro y seguimiento consciente de las almas.</p>
                                     </div>
                                     <img src="Logo La Casa del Alfarero.png" alt="Logo" className="h-16 brightness-200 opacity-30 hidden sm:block" onError={(e)=>{e.target.style.display='none';}} />
+                                </div>
+
+                                {/* Versículo Bíblico Diario */}
+                                <div className="bg-amber-50 border-l-4 border-amber-500 p-5 rounded-xl shadow-sm">
+                                    <div className="flex items-start gap-3">
+                                        <span className="text-2xl">📖</span>
+                                        <div>
+                                            <h3 className="text-xs font-bold text-amber-900 uppercase tracking-wider mb-1">Palabra del Día para el Obrero</h3>
+                                            <p className="text-sm font-serif italic text-amber-950 mb-1">"{versiculoHoy.texto}"</p>
+                                            <p className="text-xs font-bold text-amber-800">— {versiculoHoy.cita}</p>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -609,6 +638,54 @@
                                         </ul>
                                     </div>
                                 ))}
+                            </div>
+                        )}
+
+                        {/* SECCIÓN COLABORADORES (EXCLUSIVO PASTOR) */}
+                        {activeTab === 'colaboradores' && currentUser.rol === 'pastor' && (
+                            <div className="space-y-6">
+                                <div className="bg-white p-6 rounded-xl shadow-sm border">
+                                    <h2 className="text-xl font-bold text-gray-900 mb-2">Desempeño y Seguimiento de Colaboradores</h2>
+                                    <p className="text-xs text-gray-500 mb-6">Listado de hermanos colaboradores y las almas que tienen asignadas en el ministerio.</p>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {usuarios.filter(u => u.rol === 'colaborador').map(colab => {
+                                            const almasColab = personas.filter(p => p.colaborador === colab.nombre);
+                                            return (
+                                                <div key={colab.id} className="border rounded-xl p-5 bg-gray-50 space-y-3">
+                                                    <div className="flex justify-between items-start border-b pb-2">
+                                                        <div>
+                                                            <h3 className="font-bold text-gray-900 text-base">{colab.nombre}</h3>
+                                                            <p className="text-xs text-gray-500">Usuario: {colab.usuario}</p>
+                                                        </div>
+                                                        <span className="bg-brandRed text-white font-bold text-xs px-2.5 py-1 rounded-full shadow">
+                                                            {almasColab.length} almas a cargo
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <h4 className="text-xs font-bold text-gray-700 uppercase">Fichas Asignadas:</h4>
+                                                        {almasColab.length === 0 ? (
+                                                            <p className="text-xs text-gray-500 italic">No tiene fichas asignadas actualmente.</p>
+                                                        ) : (
+                                                            <div className="space-y-1">
+                                                                {almasColab.map(p => (
+                                                                    <div key={p.id} className="bg-white p-2.5 rounded border flex justify-between items-center text-xs">
+                                                                        <div>
+                                                                            <span className="font-bold text-gray-800">{p.nombre}</span>
+                                                                            <span className="text-gray-500 ml-2">({p.gradoTexto})</span>
+                                                                        </div>
+                                                                        <button onClick={() => { setSelectedPerson(p); setIsEditingPerson(false); }} className="text-brandBlue font-semibold hover:underline">Ver Ficha</button>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
                             </div>
                         )}
 
