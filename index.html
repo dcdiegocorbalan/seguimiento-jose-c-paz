@@ -140,19 +140,19 @@
                 ];
             });
 
-            // Versículos rotativos diarios
-            const versiculosDiarios = [
-                { texto: "La mies es mucha, mas los obreros pocos. Rogad, pues, al Señor de la mies, que envíe obreros a su mies.", cita: "Mateo 9:37-38" },
-                { texto: "¿No decís vosotros: Aún faltan cuatro meses para que llegue la siega? He aquí os digo: Alzad vuestros ojos y mirad los campos, porque ya están blancos para la siega.", cita: "Juan 4:35" },
-                { texto: "Id por todo el mundo y predicad el evangelio a toda criatura.", cita: "Marcos 16:15" },
-                { texto: "Y los que fueron esparcidos iban por todas partes anunciando el evangelio.", cita: "Hechos 8:4" },
-                { texto: "El fruto del justo es árbol de vida; y el que gana almas es sabio.", cita: "Proverbios 11:30" },
-                { texto: "Buscad primeramente el reino de Dios y su justicia, y todas estas cosas os serán añadidas.", cita: "Mateo 6:33" },
-                { texto: "Echa tu pan sobre las aguas; porque después de muchos días lo hallarás.", cita: "Eclesiastés 11:1" }
+            // Versículos de ánimo rotativos diarios para compartir con las almas
+            const versiculosDeAnimo = [
+                { texto: "Jehová está cerca de los quebrantados de corazón; y salva a los contritos de espíritu.", cita: "Salmos 34:18" },
+                { texto: "Echa sobre Jehová tu carga, y él te sustentará; no dejará para siempre caído al justo.", cita: "Salmos 55:22" },
+                { texto: "No temas, porque yo estoy contigo; no desmayes, porque yo soy tu Dios que te fortalezco; siempre te ayudaré, siempre te sustentaré con la diestra de mi justicia.", cita: "Isaías 41:10" },
+                { texto: "La paz os dejo, mi paz os doy; yo os la doy como el mundo la da. No se turbe vuestro corazón, ni tenga miedo.", cita: "Juan 14:27" },
+                { texto: "Venid a mí todos los que estáis trabajados y cargados, y yo os haré descansar.", cita: "Mateo 11:28" },
+                { texto: "Por nada estéis afanosos, sino ostentar vuestras peticiones delante de Dios en toda oración y ruego, con acción de gracias.", cita: "Filipenses 4:6" },
+                { texto: "Jehová es mi fortaleza y mi escudo; en él confió mi corazón, y fui ayudado.", cita: "Salmos 28:7" }
             ];
 
             const diaDelAnio = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
-            const versiculoHoy = versiculosDiarios[diaDelAnio % versiculosDiarios.length];
+            const versiculoHoy = versiculosDeAnimo[diaDelAnio % versiculosDeAnimo.length];
 
             React.useEffect(() => {
                 localStorage.setItem('alfarero_personas', JSON.stringify(personas));
@@ -578,18 +578,6 @@
                                     💡 Recuerda orar por tus seguimientos, todo lo que hagas por ellos, dará fruto a través de tu oración.
                                 </div>
 
-                                {/* Versículo Bíblico Diario */}
-                                <div className="bg-amber-50 border-l-4 border-amber-500 p-5 rounded-xl shadow-sm">
-                                    <div className="flex items-start gap-3">
-                                        <span className="text-2xl">📖</span>
-                                        <div>
-                                            <h3 className="text-xs font-bold text-amber-900 uppercase tracking-wider mb-1">Palabra del Día para el Obrero</h3>
-                                            <p className="text-sm font-serif italic text-amber-950 mb-1">"{versiculoHoy.texto}"</p>
-                                            <p className="text-xs font-bold text-amber-800">— {versiculoHoy.cita}</p>
-                                        </div>
-                                    </div>
-                                </div>
-
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                     <div className="bg-white p-5 rounded-xl shadow-sm border"><p className="text-xs text-gray-500 font-semibold uppercase">Total Personas</p><p className="text-3xl font-extrabold text-brandRed mt-1">{personas.length}</p></div>
                                     <div className="bg-white p-5 rounded-xl shadow-sm border"><p className="text-xs text-gray-500 font-semibold uppercase">En Proceso (Grado 3-5)</p><p className="text-3xl font-extrabold text-brandBlue mt-1">{personas.filter(p => p.grado >= 3 && p.grado <= 5).length}</p></div>
@@ -600,14 +588,14 @@
 
                         {activeTab === 'personas' && (
                             <div className="space-y-6">
-                                {/* Versículo de Ánimo Diario con opción de compartir por WhatsApp */}
+                                {/* Versículo de Ánimo Diario para las Almas con opción de compartir por WhatsApp */}
                                 <div className="bg-emerald-50 border border-emerald-200 p-5 rounded-2xl shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                     <div className="space-y-1">
                                         <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider">🌟 Versículo de Ánimo para Compartir Hoy</span>
                                         <p className="text-sm font-serif italic text-emerald-950">"{versiculoHoy.texto}" ({versiculoHoy.cita})</p>
                                     </div>
                                     <a 
-                                        href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Hola! Quería compartir este hermoso versículo contigo hoy: "${versiculoHoy.texto}" (${versiculoHoy.cita}) - Iglesia La Casa del Alfarero`)}`} 
+                                        href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Hola! Quería compartir este hermoso versículo de aliento contigo hoy: "${versiculoHoy.texto}" (${versiculoHoy.cita}) - Iglesia La Casa del Alfarero`)}`} 
                                         target="_blank" 
                                         rel="noopener noreferrer" 
                                         className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow transition flex items-center gap-2 whitespace-nowrap"
@@ -1124,7 +1112,7 @@
             );
         }
 
-        ReactDOM.render(<App />, document.getElementById('root'));
+        ReactDOM.render(<App/>, document.getElementById('root'));
     </script>
 </body>
 </html>
