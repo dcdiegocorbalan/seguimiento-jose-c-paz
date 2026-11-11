@@ -26,14 +26,21 @@
 
     <script type="text/babel">
         function App() {
-            // Base de datos de Usuarios
+            // Base de datos de Usuarios (con indicador de cambio de clave obligatorio)
             const [usuarios, setUsuarios] = React.useState(() => {
                 const saved = localStorage.getItem('alfarero_usuarios');
                 if (saved) return JSON.parse(saved);
                 return [
-                    { id: 1, usuario: "pastor", clave: "1234", nombre: "Pastor / Administración", rol: "pastor" },
-                    { id: 2, usuario: "tatiana", clave: "1234", nombre: "Tatiana Cariddi", rol: "colaborador" }
+                    { id: 1, usuario: "pastor", clave: "1234", nombre: "Pastor / Administración", rol: "pastor", debeCambiarClave: false },
+                    { id: 2, usuario: "tatiana", clave: "1234", nombre: "Tatiana Cariddi", rol: "colaborador", debeCambiarClave: false }
                 ];
+            });
+
+            // Solicitudes de Recuperación de Clave
+            const [solicitudesClave, setSolicitudesClave] = React.useState(() => {
+                const saved = localStorage.getItem('alfarero_solicitudes_clave');
+                if (saved) return JSON.parse(saved);
+                return [];
             });
 
             // Estado de Sesión
@@ -42,10 +49,18 @@
                 return saved ? JSON.parse(saved) : null;
             });
 
-            // Formulario de Login
+            // Formularios de Login y Recuperación
             const [loginUserInput, setLoginUserInput] = React.useState('');
             const [loginPassInput, setLoginPassInput] = React.useState('');
             const [loginError, setLoginError] = React.useState('');
+            const [showForgotModal, setShowForgotModal] = React.useState(false);
+            const [forgotUserInput, setForgotUserInput] = React.useState('');
+            const [forgotSuccessMsg, setForgotSuccessMsg] = React.useState('');
+
+            // Estado para cambio de clave obligatorio al iniciar
+            const [nuevaClaveObligatoria, setNuevaClaveObligatoria] = React.useState('');
+            const [confirmarClaveObligatoria, setConfirmarClaveObligatoria] = React.useState('');
+            const [errorCambioClave, setErrorCambioClave] = React.useState('');
 
             // Navegación y Vistas
             const [activeTab, setActiveTab] = React.useState('dashboard');
@@ -125,6 +140,10 @@
             }, [usuarios]);
 
             React.useEffect(() => {
+                localStorage.setItem('alfarero_solicitudes_clave', JSON.stringify(solicitudesClave));
+            }, [solicitudesClave]);
+
+            React.useEffect(() => {
                 if (currentUser) {
                     localStorage.setItem('alfarero_current_user', JSON.stringify(currentUser));
                 } else {
@@ -152,6 +171,94 @@
                 setActiveTab('dashboard');
             };
 
+            // Solicitar Recuperación de Clave
+            const handleRequestPasswordReset = (e) => {
+                e.preventDefault();
+                if (!forgotUserInput.trim()) return;
+
+                const userExists = usuarios.find(u => u.usuario.toLowerCase() === forgotUserInput.trim().toLowerCase());
+                if (!userExists) {
+                    setForgotSuccessMsg('Si el usuario existe, se ha enviado la solicitud al administrador.');
+                    return;
+                }
+
+                // Evitar duplicados pendientes
+                const yaExiste = solicitudesClave.some(s => s.usuario.toLowerCase() === forgotUserInput.trim().toLowerCase() && !s.atendida);
+                if (!yaExiste) {
+                    const nuevaSolicitud = {
+                        id: Date.now(),
+                        usuario: userExists.usuario,
+                        nombre: userExists.nombre,
+                        fecha: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString(),
+                        atendida: false
+                    };
+                    setSolicitudesClave([nuevaSolicitud, ...solicitudesClave]);
+                }
+
+                setForgotSuccessMsg('¡Solicitud enviada con éxito! El administrador revisará tu pedido.');
+                setTimeout(() => {
+                    setShowForgotModal(false);
+                    setForgotSuccessMsg('');
+                    setForgotUserInput('');
+                }, 3000);
+            };
+
+            // Guardar nueva clave obligatoria (primer ingreso)
+            const handleSaveMandatoryPassword = (e) => {
+                e.preventDefault();
+                if (!nuevaClaveObligatoria || nuevaClaveObligatoria.length < 4) {
+                    setErrorCambioClave('La contraseña debe tener al menos 4 caracteres.');
+                    return;
+                }
+                if (nuevaClaveObligatoria !== confirmarClaveObligatoria) {
+                    setErrorCambioClave('Las contraseñas no coinciden.');
+                    return;
+                }
+
+                // Actualizar usuario en la lista global y en la sesión actual
+                const updatedUsers = usuarios.map(u => {
+                    if (u.id === currentUser.id) {
+                        return { ...u, clave: nuevaClaveObligatoria, debeCambiarClave: false };
+                    }
+                    return u;
+                });
+                setUsuarios(updatedUsers);
+
+                const updatedCurrent = { ...currentUser, clave: nuevaClaveObligatoria, debeCambiarClave: false };
+                setCurrentUser(updatedCurrent);
+                setNuevaClaveObligatoria('');
+                setConfirmarClaveObligatoria('');
+                setErrorCambioClave('');
+                alert('¡Contraseña actualizada correctamente!');
+            };
+
+            // Pastor atiende solicitud y blanquea clave
+            const handleResolveResetRequest = (solicitudId, usuarioLogin, nuevaClaveTemp) => {
+                if (!nuevaClaveTemp) {
+                    alert('Por favor ingrese una contraseña temporal.');
+                    return;
+                }
+
+                // Actualizar clave del usuario y marcar debeCambiarClave = true
+                const updatedUsers = usuarios.map(u => {
+                    if (u.usuario.toLowerCase() === usuarioLogin.toLowerCase()) {
+                        return { ...u, clave: nuevaClaveTemp, debeCambiarClave: true };
+                    }
+                    return u;
+                });
+                setUsuarios(updatedUsers);
+
+                // Marcar solicitud como atendida
+                const updatedSolicitudes = solicitudesClave.map(s => {
+                    if (s.id === solicitudId) {
+                        return { ...s, atendida: true };
+                    }
+                    return s;
+                });
+                setSolicitudesClave(updatedSolicitudes);
+                alert(`Contraseña restablecida para ${usuarioLogin}. Deberá cambiarla al iniciar sesión.`);
+            };
+
             const handleCreatePerson = (e) => {
                 e.preventDefault();
                 if (!newPersonData.nombre.trim()) return;
@@ -163,7 +270,7 @@
                     gradoTexto: `Grado ${newPersonData.grado}: ${gradosMap[newPersonData.grado]}`,
                     canal: newPersonData.canal,
                     visitas: 0,
-                    colaborador: currentUser.nombre, // Se asigna automáticamente al usuario actual
+                    colaborador: currentUser.nombre,
                     perfil: newPersonData.perfil || 'Sin datos de perfil.',
                     pedidosOracion: newPersonData.peticionesOracion 
                         ? [{ categoria: "General", texto: newPersonData.peticionesOracion }] 
@@ -203,26 +310,27 @@
                     nombre: newUserData.nombre,
                     usuario: newUserData.usuario.toLowerCase().trim(),
                     clave: newUserData.clave,
-                    rol: newUserData.rol
+                    rol: newUserData.rol,
+                    debeCambiarClave: true // Todo usuario nuevo creado debe cambiar clave al primer ingreso
                 };
 
                 setUsuarios([...usuarios, newUser]);
                 setNewUserData({ nombre: '', usuario: '', clave: '', rol: 'colaborador' });
-                alert('¡Usuario creado con éxito!');
+                alert('¡Usuario creado con éxito! Deberá cambiar su clave al primer ingreso.');
             };
 
-            const handleChangePassword = (userId) => {
+            const handleChangePasswordAdmin = (userId) => {
                 if (!newPasswordValue.trim()) return;
                 const updatedUsers = usuarios.map(u => {
                     if (u.id === userId) {
-                        return { ...u, clave: newPasswordValue.trim() };
+                        return { ...u, clave: newPasswordValue.trim(), debeCambiarClave: true };
                     }
                     return u;
                 });
                 setUsuarios(updatedUsers);
                 setEditingPasswordUserId(null);
                 setNewPasswordValue('');
-                alert('¡Contraseña actualizada correctamente!');
+                alert('¡Contraseña restablecida! El usuario deberá cambiarla en su próximo inicio de sesión.');
             };
 
             const gradosMap = {
@@ -236,7 +344,7 @@
                 return matchName && matchGrado;
             });
 
-            // PANTALLA DE LOGIN (Sin datos expuestos)
+            // 1. PANTALLA DE LOGIN
             if (!currentUser) {
                 return (
                     <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center p-4">
@@ -278,7 +386,103 @@
                                 <button type="submit" className="w-full bg-brandRed text-white font-bold py-3 rounded-lg hover:bg-red-700 transition shadow">
                                     Ingresar a la Plataforma
                                 </button>
+
+                                <div className="text-center pt-2">
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setShowForgotModal(true)} 
+                                        className="text-xs text-brandBlue font-semibold hover:underline"
+                                    >
+                                        ¿Olvidé mi contraseña?
+                                    </button>
+                                </div>
                             </form>
+                        </div>
+
+                        {/* Modal Olvidé Contraseña */}
+                        {showForgotModal && (
+                            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                                <div className="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-xl">
+                                    <div className="flex justify-between items-center border-b pb-2">
+                                        <h3 className="font-bold text-gray-900 text-base">Recuperar Contraseña</h3>
+                                        <button onClick={() => setShowForgotModal(false)} className="text-gray-400 font-bold">✕</button>
+                                    </div>
+                                    <p className="text-xs text-gray-600">Ingresa tu nombre de usuario para notificar al administrador que necesitas un cambio de clave.</p>
+                                    
+                                    <form onSubmit={handleRequestPasswordReset} className="space-y-3">
+                                        {forgotSuccessMsg && (
+                                            <div className="bg-emerald-50 text-emerald-800 text-xs p-2 rounded border border-emerald-200 font-semibold">
+                                                {forgotSuccessMsg}
+                                            </div>
+                                        )}
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Usuario</label>
+                                            <input 
+                                                type="text" 
+                                                required 
+                                                value={forgotUserInput} 
+                                                onChange={e => setForgotUserInput(e.target.value)} 
+                                                className="w-full p-2 border rounded text-sm" 
+                                                placeholder="Tu usuario" 
+                                            />
+                                        </div>
+                                        <div className="flex justify-end gap-2 pt-2">
+                                            <button type="button" onClick={() => setShowForgotModal(false)} className="px-3 py-1.5 border rounded text-xs">Cancelar</button>
+                                            <button type="submit" className="px-3 py-1.5 bg-brandBlue text-white rounded text-xs font-bold hover:bg-blue-900">Enviar Solicitud</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            }
+
+            // 2. PANTALLA DE CAMBIO DE CLAVE OBLIGATORIO (PRIMER INGRESO)
+            if (currentUser.debeCambiarClave) {
+                return (
+                    <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center p-4">
+                        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-gray-200 p-8 space-y-6">
+                            <div className="text-center space-y-2">
+                                <h2 className="text-xl font-bold text-gray-900">Cambio de Contraseña Requerido</h2>
+                                <p className="text-xs text-gray-600">Es tu primer ingreso o tu clave ha sido restablecida. Por seguridad, debes establecer una nueva contraseña personal.</p>
+                            </div>
+
+                            <form onSubmit={handleSaveMandatoryPassword} className="space-y-4">
+                                {errorCambioClave && (
+                                    <div className="bg-red-50 text-red-700 text-xs p-3 rounded-lg border border-red-200 font-semibold">
+                                        {errorCambioClave}
+                                    </div>
+                                )}
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Nueva Contraseña</label>
+                                    <input 
+                                        type="password" 
+                                        required
+                                        placeholder="Mínimo 4 caracteres"
+                                        value={nuevaClaveObligatoria}
+                                        onChange={(e) => setNuevaClaveObligatoria(e.target.value)}
+                                        className="w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brandRed"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Confirmar Nueva Contraseña</label>
+                                    <input 
+                                        type="password" 
+                                        required
+                                        placeholder="Repite la contraseña"
+                                        value={confirmarClaveObligatoria}
+                                        onChange={(e) => setConfirmarClaveObligatoria(e.target.value)}
+                                        className="w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brandRed"
+                                    />
+                                </div>
+                                <button type="submit" className="w-full bg-brandRed text-white font-bold py-3 rounded-lg hover:bg-red-700 transition shadow">
+                                    Guardar y Continuar
+                                </button>
+                            </form>
+                            <div className="text-center">
+                                <button onClick={handleLogout} className="text-xs text-gray-500 hover:text-gray-800 underline">Cerrar Sesión</button>
+                            </div>
                         </div>
                     </div>
                 );
@@ -302,7 +506,14 @@
                                     <button onClick={() => setActiveTab('personas')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'personas' ? 'bg-brandRed text-white shadow' : 'text-gray-600'}`}>Personas</button>
                                     <button onClick={() => setActiveTab('oracion')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'oracion' ? 'bg-brandRed text-white shadow' : 'text-gray-600'}`}>Intercesión</button>
                                     {currentUser.rol === 'pastor' && (
-                                        <button onClick={() => setActiveTab('usuarios')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'usuarios' ? 'bg-brandBlue text-white shadow' : 'text-gray-600'}`}>Usuarios Admin</button>
+                                        <button onClick={() => setActiveTab('usuarios')} className={`px-3 py-1.5 rounded-md transition relative ${activeTab === 'usuarios' ? 'bg-brandBlue text-white shadow' : 'text-gray-600'}`}>
+                                            Usuarios Admin
+                                            {solicitudesClave.filter(s => !s.atendida).length > 0 && (
+                                                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                                                    {solicitudesClave.filter(s => !s.atendida).length}
+                                                </span>
+                                            )}
+                                        </button>
                                     )}
                                 </nav>
                                 <button onClick={handleLogout} className="text-xs text-gray-500 hover:text-red-600 font-semibold px-2 py-1">
@@ -391,6 +602,52 @@
 
                         {activeTab === 'usuarios' && currentUser.rol === 'pastor' && (
                             <div className="space-y-6">
+                                {/* SECCIÓN SOLICITUDES DE CLAVE */}
+                                <div className="bg-amber-50 p-6 rounded-xl shadow-sm border border-amber-200 space-y-3">
+                                    <h2 className="text-lg font-bold text-amber-900 flex items-center gap-2">
+                                        🔔 Solicitudes de Restablecimiento de Clave
+                                        {solicitudesClave.filter(s => !s.atendida).length > 0 && (
+                                            <span className="bg-red-600 text-white text-xs px-2 py-0.5 rounded-full">
+                                                {solicitudesClave.filter(s => !s.atendida).length} pendiente(s)
+                                            </span>
+                                        )}
+                                    </h2>
+                                    {solicitudesClave.filter(s => !s.atendida).length === 0 ? (
+                                        <p className="text-xs text-amber-800">No hay solicitudes pendientes de cambio de clave.</p>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {solicitudesClave.filter(s => !s.atendida).map(s => {
+                                                let tempClaveInput = '';
+                                                return (
+                                                    <div key={s.id} className="bg-white p-3 rounded border border-amber-300 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs">
+                                                        <div>
+                                                            <p className="font-bold text-gray-900">{s.nombre} (<span className="text-brandBlue">{s.usuario}</span>)</p>
+                                                            <p className="text-gray-500 text-[11px]">Solicitado el: {s.fecha}</p>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                                                            <input 
+                                                                type="text" 
+                                                                placeholder="Nueva clave temporal" 
+                                                                id={`temp_clave_${s.id}`}
+                                                                className="p-1 border rounded text-xs w-36"
+                                                            />
+                                                            <button 
+                                                                onClick={() => {
+                                                                    const val = document.getElementById(`temp_clave_${s.id}`).value;
+                                                                    handleResolveResetRequest(s.id, s.usuario, val);
+                                                                }} 
+                                                                className="bg-emerald-600 text-white px-3 py-1.5 rounded font-bold hover:bg-emerald-700"
+                                                            >
+                                                                Asignar Clave
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+
                                 <div className="bg-white p-6 rounded-xl shadow-sm border space-y-4">
                                     <h2 className="text-xl font-bold text-gray-900">Crear Nuevo Usuario / Hermano</h2>
                                     <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -403,7 +660,7 @@
                                             <input type="text" required value={newUserData.usuario} onChange={e=>setNewUserData({...newUserData, usuario: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Ej: marta" />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-700 mb-1">Contraseña</label>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Contraseña Inicial</label>
                                             <input type="password" required value={newUserData.clave} onChange={e=>setNewUserData({...newUserData, clave: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="••••••••" />
                                         </div>
                                         <div>
@@ -441,12 +698,12 @@
                                                                 onChange={e => setNewPasswordValue(e.target.value)}
                                                                 className="p-1 border rounded text-xs w-28"
                                                             />
-                                                            <button onClick={() => handleChangePassword(u.id)} className="bg-emerald-600 text-white px-2 py-1 rounded text-xs font-bold">Guardar</button>
+                                                            <button onClick={() => handleChangePasswordAdmin(u.id)} className="bg-emerald-600 text-white px-2 py-1 rounded text-xs font-bold">Guardar</button>
                                                             <button onClick={() => setEditingPasswordUserId(null)} className="bg-gray-300 text-gray-700 px-2 py-1 rounded text-xs">✕</button>
                                                         </div>
                                                     ) : (
                                                         <button onClick={() => { setEditingPasswordUserId(u.id); setNewPasswordValue(''); }} className="text-xs bg-blue-50 text-brandBlue font-semibold px-2.5 py-1 rounded border border-blue-200">
-                                                            Cambiar Clave
+                                                            Restablecer Clave
                                                         </button>
                                                     )}
                                                 </div>
@@ -511,7 +768,7 @@
                         </div>
                     )}
 
-                    {/* MODAL FICHA DETALLADA Y EDITABLE CON RESTRICCIONES DE PERMISOS */}
+                    {/* MODAL FICHA DETALLADA Y EDITABLE */}
                     {selectedPerson && (
                         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                             <div className="bg-white rounded-2xl max-w-2xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
