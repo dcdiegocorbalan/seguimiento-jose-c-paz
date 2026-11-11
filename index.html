@@ -134,14 +134,13 @@
                 ];
             });
 
-            // Versículos rotativos diarios (basado en el día del año)
+            // Versículos rotativos diarios
             const versiculosDiarios = [
                 { texto: "La mies es mucha, mas los obreros pocos. Rogad, pues, al Señor de la mies, que envíe obreros a su mies.", cita: "Mateo 9:37-38" },
                 { texto: "¿No decís vosotros: Aún faltan cuatro meses para que llegue la siega? He aquí os digo: Alzad vuestros ojos y mirad los campos, porque ya están blancos para la siega.", cita: "Juan 4:35" },
                 { texto: "Id por todo el mundo y predicad el evangelio a toda criatura.", cita: "Marcos 16:15" },
                 { texto: "Y los que fueron esparcidos iban por todas partes anunciando el evangelio.", cita: "Hechos 8:4" },
                 { texto: "El fruto del justo es árbol de vida; y el que gana almas es sabio.", cita: "Proverbios 11:30" },
-                { texto: "Y de hito en hito miraba Cornelio, y atemorizado dijo: ¿Qué es, Señor? Y le dijo: Tus oraciones y tus limas han subido para memoria delante de Dios.", cita: "Hechos 10:4" },
                 { texto: "Buscad primeramente el reino de Dios y su justicia, y todas estas cosas os serán añadidas.", cita: "Mateo 6:33" }
             ];
 
@@ -344,6 +343,17 @@
                 alert('¡Contraseña restablecida! El usuario deberá cambiarla en su próximo inicio de sesión.');
             };
 
+            const handleDeleteUser = (userId, rolUsuario) => {
+                if (rolUsuario === 'pastor' && usuarios.filter(u => u.rol === 'pastor').length <= 1) {
+                    alert('No puedes eliminar al único administrador del sistema.');
+                    return;
+                }
+                if (confirm('¿Estás seguro de eliminar este usuario?')) {
+                    const updatedUsers = usuarios.filter(u => u.id !== userId);
+                    setUsuarios(updatedUsers);
+                }
+            };
+
             const gradosMap = {
                 1: "Evangelizada", 2: "Contactada", 3: "Interesada", 4: "Dispuesta",
                 5: "Invitada", 6: "Congregante", 7: "Miembro", 8: "Servidor"
@@ -355,15 +365,14 @@
                 return matchName && matchGrado;
             });
 
-            // 1. PANTALLA DE LOGIN
+            // 1. PANTALLA DE LOGIN (Sin título redundante)
             if (!currentUser) {
                 return (
                     <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center p-4">
                         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-gray-200 p-8 space-y-6">
                             <div className="text-center space-y-3">
                                 <img src="Logo La Casa del Alfarero.png" alt="Logo" className="h-20 mx-auto object-contain" onError={(e)=>{e.target.style.display='none';}} />
-                                <h1 className="text-2xl font-bold text-gray-900">La Casa del Alfarero</h1>
-                                <p className="text-xs font-semibold text-brandRed uppercase tracking-wider">Sistema de Seguimiento Pastoral</p>
+                                <p className="text-xs font-semibold text-brandRed uppercase tracking-wider">Sistema de seguimiento de almas</p>
                             </div>
 
                             <form onSubmit={handleLogin} className="space-y-4">
@@ -641,7 +650,6 @@
                             </div>
                         )}
 
-                        {/* SECCIÓN COLABORADORES (EXCLUSIVO PASTOR) */}
                         {activeTab === 'colaboradores' && currentUser.rol === 'pastor' && (
                             <div className="space-y-6">
                                 <div className="bg-white p-6 rounded-xl shadow-sm border">
@@ -705,7 +713,6 @@
                                     ) : (
                                         <div className="space-y-2">
                                             {solicitudesClave.filter(s => !s.atendida).map(s => {
-                                                let tempClaveInput = '';
                                                 return (
                                                     <div key={s.id} className="bg-white p-3 rounded border border-amber-300 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs">
                                                         <div>
@@ -775,7 +782,7 @@
                                                     <p className="font-bold text-gray-800">{u.nombre}</p>
                                                     <p className="text-xs text-gray-500">Usuario: <span className="font-semibold text-gray-700">{u.usuario}</span> • Clave: <span className="font-mono bg-gray-100 px-2 py-0.5 rounded text-gray-600">••••••••</span></p>
                                                 </div>
-                                                <div className="flex items-center gap-2 w-full sm:w-auto">
+                                                <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
                                                     <span className="bg-gray-100 text-gray-700 text-xs px-2.5 py-1 rounded-full font-bold uppercase">{u.rol}</span>
                                                     {editingPasswordUserId === u.id ? (
                                                         <div className="flex items-center gap-1">
@@ -794,6 +801,9 @@
                                                             Restablecer Clave
                                                         </button>
                                                     )}
+                                                    <button onClick={() => handleDeleteUser(u.id, u.rol)} className="text-xs bg-red-50 text-red-700 font-semibold px-2.5 py-1 rounded border border-red-200 hover:bg-red-100">
+                                                        Eliminar
+                                                    </button>
                                                 </div>
                                             </div>
                                         ))}
