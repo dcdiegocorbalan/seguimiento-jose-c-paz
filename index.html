@@ -45,7 +45,7 @@
         }
         const db = firebase.firestore();
 
-        // DICCIONARIOS DE DESCRIPCIONES PARA NIVELES Y CANALES
+        // DICCIONARIOS DE NIVELES Y CANALES (CON TUS DESCRIPCIONES EXACTAS)
         const gradosMap = {
             1: "Evangelizada", 2: "Contactada", 3: "Interesada", 4: "Dispuesta",
             5: "Invitada", 6: "Congregante", 7: "Miembro", 8: "Servidor"
@@ -63,10 +63,11 @@
         };
 
         const canalesDesc = {
-            "Evangelismo": "Personas alcanzadas a través de campañas evangelísticas, cultos al aire libre o acción directa en las calles.",
-            "Allegado": "Familiares, amigos, vecinos o conocidos vinculados o invitados directamente por algún miembro de la congregación.",
-            "Google Maps": "Personas que encontraron la iglesia de manera orgánica a través de la ubicación o búsquedas en internet y mapas.",
-            "Traspaso": "Creyentes que provienen con carta o referencia de otra congregación o ministerio hermano."
+            "Evangelismo": "La persona llega a la iglesia mediante una invitación directa de los evangelismos, ya sea por cuenta propia mediante los volantes o mediante el seguimiento.",
+            "Allegado": "La persona llega a la iglesia por invitación de un hermano de la iglesia o del compañerismo. Hay un vínculo familiar, amistoso o cercano que abre la posibilidad de invitarlo.",
+            "Redes Sociales": "La persona conoce y visita la iglesia por sus redes sociales.",
+            "Google Maps": "La persona busca congregarse en una iglesia y llega al compañerismo porque busca previamente en su zona y aparece entre las opciones.",
+            "Traspaso": "La persona es un congregante de otra iglesia y por razones particulares busca otro lugar en la que seguir congregando."
         };
 
         function App() {
@@ -76,7 +77,7 @@
             const [cargandoDatos, setCargandoDatos] = React.useState(true);
 
             // Estado para el modal flotante de información (Niveles / Canales)
-            const [infoModal, setInfoModal] = React.useState(null); // { title: '', text: '' }
+            const [infoModal, setInfoModal] = React.useState(null);
 
             // Estado de Sesión en el navegador actual
             const [currentUser, setCurrentUser] = React.useState(() => {
@@ -952,6 +953,7 @@
                                             <select value={newPersonData.canal} onChange={e=>setNewPersonData({...newPersonData, canal: e.target.value})} className="w-full p-2 border rounded text-sm">
                                                 <option value="Evangelismo">Evangelismo</option>
                                                 <option value="Allegado">Allegado</option>
+                                                <option value="Redes Sociales">Redes Sociales</option>
                                                 <option value="Google Maps">Google Maps</option>
                                                 <option value="Traspaso">Traspaso</option>
                                             </select>
