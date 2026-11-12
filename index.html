@@ -45,11 +45,38 @@
         }
         const db = firebase.firestore();
 
+        // DICCIONARIOS DE DESCRIPCIONES PARA NIVELES Y CANALES
+        const gradosMap = {
+            1: "Evangelizada", 2: "Contactada", 3: "Interesada", 4: "Dispuesta",
+            5: "Invitada", 6: "Congregante", 7: "Miembro", 8: "Servidor"
+        };
+
+        const gradosDesc = {
+            1: "Ha escuchado el mensaje del evangelio y recibido la semilla de la palabra de salvación.",
+            2: "Se ha establecido un primer contacto directo de seguimiento, bienvenida o saludo inicial.",
+            3: "Muestra curiosidad genuina, apertura y receptividad hacia las cosas de Dios y la iglesia.",
+            4: "Manifiesta buena disposición y apertura para dar pasos firmes en su fe y crecimiento espiritual.",
+            5: "Asiste de manera activa a las reuniones generales, cultos o eventos especiales de la congregación.",
+            6: "Participa regularmente de los servicios y busca integrarse de lleno a la comunidad de fe.",
+            7: "Ha asumido un compromiso formal, sentido de pertenencia e identidad con la iglesia local.",
+            8: "Colabora activamente en los distintos ministerios, áreas y obras de servicio dentro de la iglesia."
+        };
+
+        const canalesDesc = {
+            "Evangelismo": "Personas alcanzadas a través de campañas evangelísticas, cultos al aire libre o acción directa en las calles.",
+            "Allegado": "Familiares, amigos, vecinos o conocidos vinculados o invitados directamente por algún miembro de la congregación.",
+            "Google Maps": "Personas que encontraron la iglesia de manera orgánica a través de la ubicación o búsquedas en internet y mapas.",
+            "Traspaso": "Creyentes que provienen con carta o referencia de otra congregación o ministerio hermano."
+        };
+
         function App() {
             const [usuarios, setUsuarios] = React.useState([]);
             const [personas, setPersonas] = React.useState([]);
             const [solicitudesClave, setSolicitudesClave] = React.useState([]);
             const [cargandoDatos, setCargandoDatos] = React.useState(true);
+
+            // Estado para el modal flotante de información (Niveles / Canales)
+            const [infoModal, setInfoModal] = React.useState(null); // { title: '', text: '' }
 
             // Estado de Sesión en el navegador actual
             const [currentUser, setCurrentUser] = React.useState(() => {
@@ -354,11 +381,6 @@
                 }
             };
 
-            const gradosMap = {
-                1: "Evangelizada", 2: "Contactada", 3: "Interesada", 4: "Dispuesta",
-                5: "Invitada", 6: "Congregante", 7: "Miembro", 8: "Servidor"
-            };
-
             const filteredPersonas = personas.filter(p => {
                 const matchName = p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || p.perfil.toLowerCase().includes(searchTerm.toLowerCase()) || (p.direccion && p.direccion.toLowerCase().includes(searchTerm.toLowerCase()));
                 const matchGrado = filterGrado === 'todos' || p.grado.toString() === filterGrado;
@@ -640,29 +662,50 @@
                                     </select>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {filteredPersonas.map(persona => (
-                                        <div key={persona.id || persona.idDoc} className="bg-white rounded-xl shadow-sm border flex flex-col justify-between overflow-hidden">
-                                            <div className="p-5 border-b">
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <h3 className="text-lg font-bold text-gray-900">{persona.nombre}</h3>
-                                                    <span className="bg-blue-50 text-brandBlue text-xs font-bold px-2.5 py-1 rounded-full border">{persona.gradoTexto || gradosMap[persona.grado]}</span>
+                                    {filteredPersonas.map(persona => {
+                                        const nivelNombre = persona.gradoTexto || gradosMap[persona.grado];
+                                        return (
+                                            <div key={persona.id || persona.idDoc} className="bg-white rounded-xl shadow-sm border flex flex-col justify-between overflow-hidden">
+                                                <div className="p-5 border-b">
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <h3 className="text-lg font-bold text-gray-900">{persona.nombre}</h3>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="bg-blue-50 text-brandBlue text-xs font-bold px-2.5 py-1 rounded-full border">{nivelNombre}</span>
+                                                            <button 
+                                                                onClick={() => setInfoModal({ title: `Nivel: ${nivelNombre}`, text: gradosDesc[persona.grado] || "Sin descripción disponible." })}
+                                                                className="text-xs text-brandBlue hover:bg-blue-50 w-5 h-5 rounded-full flex items-center justify-center font-bold border border-blue-200 transition"
+                                                                title="Ver descripción de este nivel"
+                                                            >
+                                                                ℹ️
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-1 text-xs text-gray-500 mb-1">
+                                                        <span>Canal: <strong className="text-gray-700">{persona.canal}</strong></span>
+                                                        <button 
+                                                            onClick={() => setInfoModal({ title: `Canal: ${persona.canal}`, text: canalesDesc[persona.canal] || "Sin descripción disponible." })}
+                                                            className="text-xs text-brandBlue hover:bg-blue-50 w-4 h-4 rounded-full flex items-center justify-center font-bold transition"
+                                                            title="Ver descripción de este canal"
+                                                        >
+                                                            ℹ️
+                                                        </button>
+                                                    </div>
+                                                    {persona.telefono && <p className="text-xs text-gray-600 mb-1">📱 Tel: {persona.telefono}</p>}
+                                                    {persona.direccion && (
+                                                        <p className="text-xs text-gray-600 mb-1 flex items-center gap-1 truncate">
+                                                            📍 <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(persona.direccion)}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-medium">{persona.direccion}</a>
+                                                        </p>
+                                                    )}
+                                                    <p className="text-xs font-medium text-brandRed mb-3">Seguimiento a cargo de: {persona.colaborador || 'Sin asignar'}</p>
+                                                    <p className="text-sm text-gray-600 line-clamp-3">{persona.perfil}</p>
                                                 </div>
-                                                <p className="text-xs text-gray-500 mb-1">Canal: {persona.canal}</p>
-                                                {persona.telefono && <p className="text-xs text-gray-600 mb-1">📱 Tel: {persona.telefono}</p>}
-                                                {persona.direccion && (
-                                                    <p className="text-xs text-gray-600 mb-1 flex items-center gap-1 truncate">
-                                                        📍 <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(persona.direccion)}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-medium">{persona.direccion}</a>
-                                                    </p>
-                                                )}
-                                                <p className="text-xs font-medium text-brandRed mb-3">Seguimiento a cargo de: {persona.colaborador || 'Sin asignar'}</p>
-                                                <p className="text-sm text-gray-600 line-clamp-3">{persona.perfil}</p>
+                                                <div className="px-5 py-3 bg-gray-50 flex justify-between items-center">
+                                                    <span className="text-xs text-gray-500">{persona.pedidosOracion ? persona.pedidosOracion.length : 0} pedidos</span>
+                                                    <button onClick={() => { setSelectedPerson(persona); setIsEditingPerson(false); }} className="text-xs bg-brandRed text-white font-semibold px-3 py-1.5 rounded-lg">Ver Ficha</button>
+                                                </div>
                                             </div>
-                                            <div className="px-5 py-3 bg-gray-50 flex justify-between items-center">
-                                                <span className="text-xs text-gray-500">{persona.pedidosOracion ? persona.pedidosOracion.length : 0} pedidos</span>
-                                                <button onClick={() => { setSelectedPerson(persona); setIsEditingPerson(false); }} className="text-xs bg-brandRed text-white font-semibold px-3 py-1.5 rounded-lg">Ver Ficha</button>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}
@@ -711,15 +754,25 @@
                                                             <p className="text-xs text-gray-500 italic">No tiene fichas asignadas actualmente.</p>
                                                         ) : (
                                                             <div className="space-y-1">
-                                                                {almasColab.map(p => (
-                                                                    <div key={p.id || p.idDoc} className="bg-white p-2.5 rounded border flex justify-between items-center text-xs">
-                                                                        <div>
-                                                                            <span className="font-bold text-gray-800">{p.nombre}</span>
-                                                                            <span className="text-gray-500 ml-2">({p.gradoTexto || gradosMap[p.grado]})</span>
+                                                                {almasColab.map(p => {
+                                                                    const nivelNombre = p.gradoTexto || gradosMap[p.grado];
+                                                                    return (
+                                                                        <div key={p.id || p.idDoc} className="bg-white p-2.5 rounded border flex justify-between items-center text-xs">
+                                                                            <div className="flex items-center gap-1.5">
+                                                                                <span className="font-bold text-gray-800">{p.nombre}</span>
+                                                                                <span className="text-gray-500">({nivelNombre})</span>
+                                                                                <button 
+                                                                                    onClick={() => setInfoModal({ title: `Nivel: ${nivelNombre}`, text: gradosDesc[p.grado] || "Sin descripción." })}
+                                                                                    className="text-[10px] text-brandBlue hover:bg-blue-50 w-4 h-4 rounded-full flex items-center justify-center font-bold"
+                                                                                    title="Ver descripción"
+                                                                                >
+                                                                                    ℹ️
+                                                                                </button>
+                                                                            </div>
+                                                                            <button onClick={() => { setSelectedPerson(p); setIsEditingPerson(false); }} className="text-brandBlue font-semibold hover:underline">Ver Ficha</button>
                                                                         </div>
-                                                                        <button onClick={() => { setSelectedPerson(p); setIsEditingPerson(false); }} className="text-brandBlue font-semibold hover:underline">Ver Ficha</button>
-                                                                    </div>
-                                                                ))}
+                                                                    );
+                                                                })}
                                                             </div>
                                                         )}
                                                     </div>
@@ -869,7 +922,15 @@
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-700 mb-1">Nivel Inicial</label>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center justify-between">
+                                                <span>Nivel Inicial</span>
+                                                <span 
+                                                    onClick={() => setInfoModal({ title: "Acerca de los Niveles", text: "Indica el grado de madurez o el punto en el que se encuentra la persona dentro de su proceso de seguimiento." })} 
+                                                    className="text-brandBlue cursor-pointer text-xs font-normal"
+                                                >
+                                                    ℹ️ Info
+                                                </span>
+                                            </label>
                                             <select value={newPersonData.grado} onChange={e=>setNewPersonData({...newPersonData, grado: e.target.value})} className="w-full p-2 border rounded text-sm">
                                                 {Object.entries(gradosMap).map(([num, name]) => (
                                                     <option key={num} value={num}>{name}</option>
@@ -879,7 +940,15 @@
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-700 mb-1">Canal de Origen</label>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center justify-between">
+                                                <span>Canal de Origen</span>
+                                                <span 
+                                                    onClick={() => setInfoModal({ title: "Acerca de los Canales", text: "El canal de origen detalla por qué medio o vía la persona llegó a la iglesia o fue contactada." })} 
+                                                    className="text-brandBlue cursor-pointer text-xs font-normal"
+                                                >
+                                                    ℹ️ Info
+                                                </span>
+                                            </label>
                                             <select value={newPersonData.canal} onChange={e=>setNewPersonData({...newPersonData, canal: e.target.value})} className="w-full p-2 border rounded text-sm">
                                                 <option value="Evangelismo">Evangelismo</option>
                                                 <option value="Allegado">Allegado</option>
@@ -924,8 +993,28 @@
                                 <div className="flex justify-between items-start border-b pb-3">
                                     <div>
                                         <h2 className="text-xl font-bold">{selectedPerson.nombre}</h2>
-                                        <p className="text-xs text-brandBlue font-semibold">{selectedPerson.gradoTexto || gradosMap[selectedPerson.grado]} • Canal: {selectedPerson.canal}</p>
-                                        <p className="text-xs font-semibold text-brandRed mt-0.5">Seguimiento a cargo de: {selectedPerson.colaborador || 'Sin asignar'}</p>
+                                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                            <span className="text-xs text-brandBlue font-semibold flex items-center gap-1">
+                                                {selectedPerson.gradoTexto || gradosMap[selectedPerson.grado]}
+                                                <button 
+                                                    onClick={() => setInfoModal({ title: `Nivel: ${selectedPerson.gradoTexto || gradosMap[selectedPerson.grado]}`, text: gradosDesc[selectedPerson.grado] || "Sin descripción." })}
+                                                    className="text-[10px] text-brandBlue hover:bg-blue-50 w-4 h-4 rounded-full flex items-center justify-center font-bold border border-blue-200"
+                                                >
+                                                    ℹ️
+                                                </button>
+                                            </span>
+                                            <span className="text-xs text-gray-400">•</span>
+                                            <span className="text-xs text-gray-600 font-semibold flex items-center gap-1">
+                                                Canal: {selectedPerson.canal}
+                                                <button 
+                                                    onClick={() => setInfoModal({ title: `Canal: ${selectedPerson.canal}`, text: canalesDesc[selectedPerson.canal] || "Sin descripción." })}
+                                                    className="text-[10px] text-brandBlue hover:bg-blue-50 w-4 h-4 rounded-full flex items-center justify-center font-bold border border-blue-200"
+                                                >
+                                                    ℹ️
+                                                </button>
+                                            </span>
+                                        </div>
+                                        <p className="text-xs font-semibold text-brandRed mt-1">Seguimiento a cargo de: {selectedPerson.colaborador || 'Sin asignar'}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         {(currentUser.rol === 'pastor' || currentUser.nombre === selectedPerson.colaborador) && (
@@ -999,7 +1088,15 @@
                                     <form onSubmit={handleSaveEditedPerson} className="space-y-3 text-sm">
                                         <div className="grid grid-cols-2 gap-3">
                                             <div>
-                                                <label className="block text-xs font-bold text-gray-700 mb-1">Nivel Actual</label>
+                                                <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center justify-between">
+                                                    <span>Nivel Actual</span>
+                                                    <span 
+                                                        onClick={() => setInfoModal({ title: "Acerca de los Niveles", text: "Selecciona el nuevo nivel en el que se encuentra la persona." })} 
+                                                        className="text-brandBlue cursor-pointer text-[11px]"
+                                                    >
+                                                        ℹ️ Info
+                                                    </span>
+                                                </label>
                                                 <select 
                                                     value={selectedPerson.grado} 
                                                     onChange={e => setSelectedPerson({...selectedPerson, grado: parseInt(e.target.value)})}
@@ -1119,6 +1216,31 @@
 
                                 <div className="flex justify-end pt-2 border-t">
                                     <button onClick={() => { setSelectedPerson(null); setIsEditingPerson(false); }} className="bg-gray-800 text-white px-4 py-2 rounded text-xs font-semibold">Cerrar Ficha</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* MODAL FLOTANTE GENERAL DE INFORMACIÓN (ℹ️) */}
+                    {infoModal && (
+                        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+                            <div className="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl border border-gray-100 animate-in fade-in zoom-in duration-150">
+                                <div className="flex justify-between items-center border-b pb-3">
+                                    <h3 className="font-bold text-gray-900 text-base flex items-center gap-2">
+                                        ℹ️ {infoModal.title}
+                                    </h3>
+                                    <button onClick={() => setInfoModal(null)} className="text-gray-400 font-bold hover:text-gray-700 text-lg">✕</button>
+                                </div>
+                                <p className="text-sm text-gray-600 leading-relaxed">
+                                    {infoModal.text}
+                                </p>
+                                <div className="flex justify-end pt-2">
+                                    <button 
+                                        onClick={() => setInfoModal(null)} 
+                                        className="bg-brandBlue text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-900 transition shadow"
+                                    >
+                                        Entendido
+                                    </button>
                                 </div>
                             </div>
                         </div>
