@@ -126,8 +126,7 @@
                 perfil: '',
                 peticionesOracion: '',
                 notasPastor: '',
-                contactos: ['', '', ''],
-                visitas: ['', '', '']
+                notasColaborador: ''
             });
 
             const [newUserData, setNewUserData] = React.useState({
@@ -135,6 +134,13 @@
                 usuario: '',
                 clave: '',
                 rol: 'colaborador'
+            });
+
+            // Estado para nuevo evento en el historial de la ficha seleccionada
+            const [nuevoHistorial, setNuevoHistorial] = React.useState({
+                tipo: 'Llamada',
+                fecha: new Date().toISOString().split('T')[0],
+                detalle: ''
             });
 
             const [editingPasswordUserId, setEditingPasswordUserId] = React.useState(null);
@@ -309,17 +315,14 @@
                     grado: grNum,
                     gradoTexto: gradosMap[grNum],
                     canal: newPersonData.canal,
-                    colaborador: currentUser.nombre,
+                    colaborador: currentUser.rol === 'pastor' ? 'Sin asignar' : currentUser.nombre,
                     telefono: newPersonData.telefono || '',
                     direccion: newPersonData.direccion || '',
                     perfil: newPersonData.perfil || 'Sin datos de perfil.',
-                    pedidosOracion: newPersonData.peticionesOracion 
-                        ? [{ categoria: "General", texto: newPersonData.peticionesOracion }] 
-                        : [],
+                    pedidosOracion: [],
                     notasPastor: newPersonData.notasPastor || '',
-                    comentariosPastor: 'Pendiente de revisión pastoral.',
-                    contactos: newPersonData.contactos || ['', '', ''],
-                    visitas: newPersonData.visitas || ['', '', ''],
+                    notasColaborador: newPersonData.notasColaborador || '',
+                    historial: [], // Línea de tiempo completa de llamadas, mensajes y visitas
                     archivado: false,
                     motivoArchivo: null,
                     observacionesArchivo: null
@@ -329,8 +332,7 @@
                 setShowNewPersonModal(false);
                 setNewPersonData({
                     nombre: '', genero: 'femenino', grado: 3, canal: 'Evangelismo',
-                    telefono: '', direccion: '', perfil: '', peticionesOracion: '', notasPastor: '',
-                    contactos: ['', '', ''], visitas: ['', '', '']
+                    telefono: '', direccion: '', perfil: '', peticionesOracion: '', notasPastor: '', notasColaborador: ''
                 });
             };
 
@@ -342,14 +344,56 @@
                         ...selectedPerson,
                         grado: grNum,
                         gradoTexto: gradosMap[grNum],
-                        contactos: Array.isArray(selectedPerson.contactos) ? selectedPerson.contactos : ['', '', ''],
-                        visitas: Array.isArray(selectedPerson.visitas) ? selectedPerson.visitas : ['', '', '']
+                        historial: Array.isArray(selectedPerson.historial) ? selectedPerson.historial : []
                     };
                     delete dataToUpdate.idDoc;
                     await db.collection('personas').doc(selectedPerson.idDoc).update(dataToUpdate);
                 }
                 setIsEditingPerson(false);
                 alert('¡Ficha actualizada con éxito!');
+            };
+
+            const handleAddHistorialItem = async (e) => {
+                e.preventDefault();
+                if (!nuevoHistorial.detalle.trim()) return;
+
+                const newItem = {
+                    id: Date.now(),
+                    tipo: nuevoHistorial.tipo, // 'Llamada', 'Mensaje', 'Visita'
+                    fecha: nuevoHistorial.fecha || new Date().toISOString().split('T')[0],
+                    detalle: nuevoHistorial.detalle.trim(),
+                    autor: currentUser.nombre
+                };
+
+                const actualizadoHistorial = [newItem, ...(Array.isArray(selectedPerson.historial) ? selectedPerson.historial : [])];
+                const updatedPersonData = { ...selectedPerson, historial: actualizadoHistorial };
+
+                if (selectedPerson.idDoc) {
+                    const dataToDb = { ...updatedPersonData };
+                    delete dataToDb.idDoc;
+                    await db.collection('personas').doc(selectedPerson.idDoc).update(dataToDb);
+                }
+
+                setSelectedPerson(updatedPersonData);
+                setNuevoHistorial({
+                    tipo: 'Llamada',
+                    fecha: new Date().toISOString().split('T')[0],
+                    detalle: ''
+                });
+            };
+
+            const handleDeleteHistorialItem = async (itemId) => {
+                if (confirm('¿Eliminar este registro del historial?')) {
+                    const actualizadoHistorial = selectedPerson.historial.filter(item => item.id !== itemId);
+                    const updatedPersonData = { ...selectedPerson, historial: actualizadoHistorial };
+
+                    if (selectedPerson.idDoc) {
+                        const dataToDb = { ...updatedPersonData };
+                        delete dataToDb.idDoc;
+                        await db.collection('personas').doc(selectedPerson.idDoc).update(dataToDb);
+                    }
+                    setSelectedPerson(updatedPersonData);
+                }
             };
 
             const handleDeletePerson = async (personIdDoc) => {
@@ -431,6 +475,11 @@
             // Filtrado de personas activas
             const personasActivas = personas.filter(p => !p.archivado);
             const personasArchivadas = personas.filter(p => p.archivado);
+
+            // Lista única de colaboradores para selectores (sin duplicados)
+            const colaboradoresUnicos = Array.from(
+                new Set(usuarios.filter(u => u.rol === 'colaborador').map(u => u.nombre))
+            );
 
             const filteredPersonas = personasActivas.filter(p => {
                 const matchName = p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || p.perfil.toLowerCase().includes(searchTerm.toLowerCase()) || (p.direccion && p.direccion.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -614,7 +663,7 @@
                                 <img src="Logo La Casa del Alfarero.png" alt="Logo" className="h-10 object-contain" onError={(e)=>{e.target.style.display='none';}} />
                                 <div>
                                     <h1 className="text-base font-bold text-gray-900 leading-tight">La Casa del Alfarero</h1>
-                                    <p className="text-xs text-gray-500 font-semibold">Seguimiento • {currentUser.nombre}</p>
+                                    <p className="text-xs text-gray-500 font-semibold">Seguimiento • {currentUser.nombre} ({currentUser.rol === 'pastor' ? 'Pastor / Admin' : 'Colaborador'})</p>
                                 </div>
                             </div>
 
@@ -812,7 +861,7 @@
                                                     <p className="text-sm text-gray-600 line-clamp-3">{persona.perfil}</p>
                                                 </div>
                                                 <div className="px-5 py-3 bg-gray-50 flex justify-between items-center">
-                                                    <span className="text-xs text-gray-500">{persona.pedidosOracion ? persona.pedidosOracion.length : 0} pedidos</span>
+                                                    <span className="text-xs text-gray-500">{persona.historial ? persona.historial.length : 0} interacciones</span>
                                                     <button onClick={() => { setSelectedPerson(persona); setIsEditingPerson(false); }} className="text-xs bg-brandRed text-white font-semibold px-3 py-1.5 rounded-lg">Ver Ficha</button>
                                                 </div>
                                             </div>
@@ -860,16 +909,19 @@
 
                         {activeTab === 'oracion' && (
                             <div className="bg-white p-6 rounded-xl shadow-sm border space-y-4">
-                                <h2 className="text-xl font-bold text-gray-900">Motivos de Oración Activos</h2>
-                                {personasActivas.map(persona => persona.pedidosOracion && persona.pedidosOracion.length > 0 && (
-                                    <div key={persona.id || persona.idDoc} className="border rounded-lg p-4 bg-gray-50">
-                                        <div className="flex justify-between items-center mb-1">
-                                            <h4 className="font-bold text-brandBlue">{persona.nombre}</h4>
-                                            <span className="text-xs text-gray-500">Seguimiento: {persona.colaborador}</span>
+                                <h2 className="text-xl font-bold text-gray-900">Motivos de Oración y Peticiones</h2>
+                                {personasActivas.map(persona => (persona.notasColaborador || persona.notasPastor || (persona.historial && persona.historial.some(h => h.detalle.toLowerCase().includes('oración')))) && (
+                                    <div key={persona.id || persona.idDoc} className="border rounded-lg p-4 bg-gray-50 space-y-2">
+                                        <div className="flex justify-between items-center border-b pb-2">
+                                            <h4 className="font-bold text-brandBlue text-base">{persona.nombre}</h4>
+                                            <span className="text-xs text-gray-500 font-semibold">Seguimiento: {persona.colaborador}</span>
                                         </div>
-                                        <ul className="list-disc list-inside text-sm text-gray-700">
-                                            {persona.pedidosOracion.map((p, idx) => (<li key={idx}><strong>{p.categoria}:</strong> {p.texto}</li>))}
-                                        </ul>
+                                        {persona.notasColaborador && (
+                                            <p className="text-xs text-gray-700"><strong>Nota del colaborador:</strong> {persona.notasColaborador}</p>
+                                        )}
+                                        {persona.notasPastor && (
+                                            <p className="text-xs text-brandRed font-medium"><strong>Nota del pastor:</strong> {persona.notasPastor}</p>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -1000,6 +1052,43 @@
                                         </div>
                                     </form>
                                 </div>
+
+                                <div className="bg-white p-6 rounded-xl shadow-sm border">
+                                    <h3 className="text-lg font-bold text-gray-900 mb-4">Usuarios Habilitados</h3>
+                                    <div className="divide-y">
+                                        {usuarios.map(u => (
+                                            <div key={u.id || u.idDoc} className="py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-sm">
+                                                <div>
+                                                    <p className="font-bold text-gray-800">{u.nombre}</p>
+                                                    <p className="text-xs text-gray-500">Usuario: <span className="font-semibold text-gray-700">{u.usuario}</span> • Clave: <span className="font-mono bg-gray-100 px-2 py-0.5 rounded text-gray-600">••••••••</span></p>
+                                                </div>
+                                                <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+                                                    <span className="bg-gray-100 text-gray-700 text-xs px-2.5 py-1 rounded-full font-bold uppercase">{u.rol}</span>
+                                                    {editingPasswordUserId === u.id ? (
+                                                        <div className="flex items-center gap-1">
+                                                            <input 
+                                                                type="text" 
+                                                                placeholder="Nueva clave" 
+                                                                value={newPasswordValue} 
+                                                                onChange={e => setNewPasswordValue(e.target.value)}
+                                                                className="p-1 border rounded text-xs w-28"
+                                                            />
+                                                            <button onClick={() => handleChangePasswordAdmin(u.id, u.idDoc)} className="bg-emerald-600 text-white px-2 py-1 rounded text-xs font-bold">Guardar</button>
+                                                            <button onClick={() => setEditingPasswordUserId(null)} className="bg-gray-300 text-gray-700 px-2 py-1 rounded text-xs">✕</button>
+                                                        </div>
+                                                    ) : (
+                                                        <button onClick={() => { setEditingPasswordUserId(u.id); setNewPasswordValue(''); }} className="text-xs bg-blue-50 text-brandBlue font-semibold px-2.5 py-1 rounded border border-blue-200">
+                                                            Restablecer Clave
+                                                        </button>
+                                                    )}
+                                                    <button onClick={() => handleDeleteUser(u.id, u.idDoc, u.rol)} className="text-xs bg-red-50 text-red-700 font-semibold px-2.5 py-1 rounded border border-red-200 hover:bg-red-100">
+                                                        Eliminar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </main>
@@ -1064,6 +1153,16 @@
                                         <label className="block text-xs font-bold text-gray-700 mb-1">Perfil / Notas de Contexto</label>
                                         <textarea rows="2" value={newPersonData.perfil} onChange={e=>setNewPersonData({...newPersonData, perfil: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Detalles..."></textarea>
                                     </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Nota del Colaborador</label>
+                                        <input type="text" value={newPersonData.notasColaborador} onChange={e=>setNewPersonData({...newPersonData, notasColaborador: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Notas iniciales del colaborador..." />
+                                    </div>
+                                    {currentUser.rol === 'pastor' && (
+                                        <div>
+                                            <label className="block text-xs font-bold text-brandRed mb-1">Nota para el Pastor</label>
+                                            <input type="text" value={newPersonData.notasPastor} onChange={e=>setNewPersonData({...newPersonData, notasPastor: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Instrucción pastoral..." />
+                                        </div>
+                                    )}
                                     <div className="flex justify-end gap-2 pt-3 border-t">
                                         <button type="button" onClick={() => setShowNewPersonModal(false)} className="px-4 py-2 border rounded text-xs font-semibold">Cancelar</button>
                                         <button type="submit" className="px-4 py-2 bg-brandRed text-white rounded text-xs font-bold hover:bg-red-700">Guardar Ficha</button>
@@ -1130,26 +1229,60 @@
                                             </a>
                                         </div>
 
-                                        {/* ÚLTIMOS 3 CONTACTOS Y 3 VISITAS */}
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            <div className="bg-gray-50 p-3 rounded-xl border">
-                                                <h4 className="font-bold text-xs text-gray-700 uppercase mb-2">📞 Últimos 3 Contactos Telefónicos</h4>
-                                                {(!Array.isArray(selectedPerson.contactos) || selectedPerson.contactos.every(c => !c)) ? (
-                                                    <p className="text-xs text-gray-500 italic">Sin registros recientes.</p>
+                                        {/* LÍNEA DE TIEMPO / HISTORIAL COMPLETO DE INTERACCIONES */}
+                                        <div className="bg-gray-50 p-4 rounded-xl border space-y-3">
+                                            <h4 className="font-bold text-xs text-gray-700 uppercase">📋 Historial Completo de Llamadas, Mensajes y Visitas</h4>
+                                            
+                                            {/* Formulario rápido para agregar nueva interacción */}
+                                            <form onSubmit={handleAddHistorialItem} className="bg-white p-3 rounded-lg border space-y-2">
+                                                <p className="text-[11px] font-bold text-brandBlue uppercase">Agregar nueva interacción:</p>
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                                    <select 
+                                                        value={nuevoHistorial.tipo} 
+                                                        onChange={e => setNuevoHistorial({...nuevoHistorial, tipo: e.target.value})}
+                                                        className="p-1.5 border rounded text-xs bg-white font-medium"
+                                                    >
+                                                        <option value="Llamada">📞 Llamada</option>
+                                                        <option value="Mensaje">💬 Mensaje</option>
+                                                        <option value="Visita">🏠 Visita</option>
+                                                    </select>
+                                                    <input 
+                                                        type="date" 
+                                                        value={nuevoHistorial.fecha} 
+                                                        onChange={e => setNuevoHistorial({...nuevoHistorial, fecha: e.target.value})}
+                                                        className="p-1.5 border rounded text-xs"
+                                                    />
+                                                    <button type="submit" className="bg-brandBlue text-white font-bold px-3 py-1.5 rounded text-xs hover:bg-blue-900 transition">
+                                                        + Registrar
+                                                    </button>
+                                                </div>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Detalle o temas conversados..." 
+                                                    value={nuevoHistorial.detalle} 
+                                                    onChange={e => setNuevoHistorial({...nuevoHistorial, detalle: e.target.value})}
+                                                    className="w-full p-1.5 border rounded text-xs"
+                                                />
+                                            </form>
+
+                                            {/* Listado de interacciones */}
+                                            <div className="space-y-2 max-h-48 overflow-y-auto">
+                                                {(!selectedPerson.historial || selectedPerson.historial.length === 0) ? (
+                                                    <p className="text-xs text-gray-500 italic py-2 text-center">No hay interacciones registradas aún.</p>
                                                 ) : (
-                                                    <ul className="list-disc list-inside text-xs space-y-1 text-gray-700">
-                                                        {selectedPerson.contactos.map((c, i) => c ? <li key={i}>{c}</li> : null)}
-                                                    </ul>
-                                                )}
-                                            </div>
-                                            <div className="bg-gray-50 p-3 rounded-xl border">
-                                                <h4 className="font-bold text-xs text-gray-700 uppercase mb-2">🏠 Últimas 3 Visitas (o Motivo)</h4>
-                                                {(!Array.isArray(selectedPerson.visitas) || selectedPerson.visitas.every(v => !v)) ? (
-                                                    <p className="text-xs text-gray-500 italic">Sin registros recientes.</p>
-                                                ) : (
-                                                    <ul className="list-disc list-inside text-xs space-y-1 text-gray-700">
-                                                        {selectedPerson.visitas.map((v, i) => v ? <li key={i}>{v}</li> : null)}
-                                                    </ul>
+                                                    selectedPerson.historial.map(item => (
+                                                        <div key={item.id} className="bg-white p-2.5 rounded border text-xs flex justify-between items-start">
+                                                            <div>
+                                                                <div className="flex items-center gap-2 font-bold text-gray-800">
+                                                                    <span className="bg-blue-100 text-brandBlue px-2 py-0.5 rounded text-[10px]">{item.tipo}</span>
+                                                                    <span>{item.fecha}</span>
+                                                                    <span className="text-gray-400 font-normal">({item.autor})</span>
+                                                                </div>
+                                                                <p className="text-gray-600 mt-1">{item.detalle}</p>
+                                                            </div>
+                                                            <button onClick={() => handleDeleteHistorialItem(item.id)} className="text-gray-400 hover:text-red-600 font-bold px-1">✕</button>
+                                                        </div>
+                                                    ))
                                                 )}
                                             </div>
                                         </div>
@@ -1176,9 +1309,16 @@
                                             <p className="text-gray-600 bg-gray-50 p-3 rounded">{selectedPerson.perfil}</p>
                                         </div>
 
-                                        <div className="bg-gray-50 p-3 rounded border">
-                                            <h4 className="font-bold text-gray-700 text-xs uppercase mb-1">Notas para el Pastor</h4>
-                                            <p className="text-gray-700 text-xs">{selectedPerson.notasPastor || 'Sin notas registradas.'}</p>
+                                        {/* NOTAS CRUZADAS: COLABORADOR Y PASTOR */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <div className="bg-gray-50 p-3 rounded border">
+                                                <h4 className="font-bold text-gray-700 text-xs uppercase mb-1">Nota del Colaborador</h4>
+                                                <p className="text-gray-700 text-xs">{selectedPerson.notasColaborador || 'Sin notas del colaborador.'}</p>
+                                            </div>
+                                            <div className="bg-red-50 p-3 rounded border border-red-200">
+                                                <h4 className="font-bold text-brandRed text-xs uppercase mb-1">Nota para el Pastor / Observaciones</h4>
+                                                <p className="text-gray-700 text-xs">{selectedPerson.notasPastor || 'Sin notas pastorales.'}</p>
+                                            </div>
                                         </div>
 
                                         <div className="flex justify-between items-center pt-3 border-t">
@@ -1252,56 +1392,13 @@
                                                         className="w-full p-2 border rounded text-xs bg-white"
                                                     >
                                                         <option value="">Seleccionar colaborador</option>
-                                                        {usuarios.filter(u => u.rol === 'colaborador').map(u => (
-                                                            <option key={u.id || u.idDoc} value={u.nombre}>{u.nombre}</option>
+                                                        {colaboradoresUnicos.map(nombreColab => (
+                                                            <option key={nombreColab} value={nombreColab}>{nombreColab}</option>
                                                         ))}
                                                     </select>
                                                 ) : (
                                                     <input type="text" disabled value={selectedPerson.colaborador} className="w-full p-2 border rounded text-xs bg-gray-100 text-gray-500" />
                                                 )}
-                                            </div>
-                                        </div>
-
-                                        {/* EDITAR CONTACTOS Y VISITAS */}
-                                        <div className="space-y-2 border p-3 rounded-lg bg-gray-50">
-                                            <h4 className="font-bold text-xs text-gray-700 uppercase">Actualizar Historial Reciente</h4>
-                                            <div>
-                                                <label className="block text-[11px] font-semibold text-gray-600 mb-1">Últimos 3 Contactos (Ej: Llamada 10/11 - Mensaje 12/11)</label>
-                                                <div className="grid grid-cols-3 gap-2">
-                                                    {[0, 1, 2].map(idx => (
-                                                        <input 
-                                                            key={idx}
-                                                            type="text"
-                                                            placeholder={`Contacto ${idx+1}`}
-                                                            value={Array.isArray(selectedPerson.contactos) ? selectedPerson.contactos[idx] || '' : ''}
-                                                            onChange={e => {
-                                                                const newC = Array.isArray(selectedPerson.contactos) ? [...selectedPerson.contactos] : ['', '', ''];
-                                                                newC[idx] = e.target.value;
-                                                                setSelectedPerson({...selectedPerson, contactos: newC});
-                                                            }}
-                                                            className="p-1.5 border rounded text-xs"
-                                                        />
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label className="block text-[11px] font-semibold text-gray-600 mb-1">Últimas 3 Visitas o Motivo de Inasistencia</label>
-                                                <div className="grid grid-cols-3 gap-2">
-                                                    {[0, 1, 2].map(idx => (
-                                                        <input 
-                                                            key={idx}
-                                                            type="text"
-                                                            placeholder={`Visita/Motivo ${idx+1}`}
-                                                            value={Array.isArray(selectedPerson.visitas) ? selectedPerson.visitas[idx] || '' : ''}
-                                                            onChange={e => {
-                                                                const newV = Array.isArray(selectedPerson.visitas) ? [...selectedPerson.visitas] : ['', '', ''];
-                                                                newV[idx] = e.target.value;
-                                                                setSelectedPerson({...selectedPerson, visitas: newV});
-                                                            }}
-                                                            className="p-1.5 border rounded text-xs"
-                                                        />
-                                                    ))}
-                                                </div>
                                             </div>
                                         </div>
 
@@ -1323,6 +1420,29 @@
                                                 onChange={e => setSelectedPerson({...selectedPerson, perfil: e.target.value})}
                                                 className="w-full p-2 border rounded text-xs"
                                             ></textarea>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-700 mb-1">Nota del Colaborador</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={selectedPerson.notasColaborador || ''} 
+                                                    onChange={e => setSelectedPerson({...selectedPerson, notasColaborador: e.target.value})}
+                                                    className="w-full p-2 border rounded text-xs"
+                                                />
+                                            </div>
+                                            {currentUser.rol === 'pastor' && (
+                                                <div>
+                                                    <label className="block text-xs font-bold text-brandRed mb-1">Nota para el Pastor</label>
+                                                    <input 
+                                                        type="text" 
+                                                        value={selectedPerson.notasPastor || ''} 
+                                                        onChange={e => setSelectedPerson({...selectedPerson, notasPastor: e.target.value})}
+                                                        className="w-full p-2 border rounded text-xs"
+                                                    />
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div className="flex justify-end gap-2 pt-3 border-t">
