@@ -45,7 +45,7 @@
         }
         const db = firebase.firestore();
 
-        // DICCIONARIOS DE NIVELES Y CANALES (CON TUS DESCRIPCIONES EXACTAS)
+        // DICCIONARIOS
         const gradosMap = {
             1: "Evangelizada", 2: "Contactada", 3: "Interesada", 4: "Dispuesta",
             5: "Invitada", 6: "Congregante", 7: "Miembro", 8: "Servidor"
@@ -76,8 +76,14 @@
             const [solicitudesClave, setSolicitudesClave] = React.useState([]);
             const [cargandoDatos, setCargandoDatos] = React.useState(true);
 
-            // Estado para el modal flotante de información (Niveles / Canales)
+            // Estado para el modal flotante de información
             const [infoModal, setInfoModal] = React.useState(null);
+
+            // Estado de Archivar
+            const [showArchiveModal, setShowArchiveModal] = React.useState(false);
+            const [archiveMotivo, setArchiveMotivo] = React.useState('Nuevo miembro');
+            const [archiveObs, setArchiveObs] = React.useState('');
+            const [personToArchive, setPersonToArchive] = React.useState(null);
 
             // Estado de Sesión en el navegador actual
             const [currentUser, setCurrentUser] = React.useState(() => {
@@ -104,6 +110,7 @@
             const [isEditingPerson, setIsEditingPerson] = React.useState(false);
             const [searchTerm, setSearchTerm] = React.useState('');
             const [filterGrado, setFilterGrado] = React.useState('todos');
+            const [filterCanal, setFilterCanal] = React.useState('todos');
 
             // Modales
             const [showNewPersonModal, setShowNewPersonModal] = React.useState(false);
@@ -118,7 +125,9 @@
                 direccion: '',
                 perfil: '',
                 peticionesOracion: '',
-                notasPastor: ''
+                notasPastor: '',
+                contactos: ['', '', ''], // tipo y detalle o fecha
+                visitas: ['', '', '']    // fecha/motivo
             });
 
             const [newUserData, setNewUserData] = React.useState({
@@ -131,27 +140,16 @@
             const [editingPasswordUserId, setEditingPasswordUserId] = React.useState(null);
             const [newPasswordValue, setNewPasswordValue] = React.useState('');
 
-            // Sincronización y Migración Automática con Firestore
+            // Sincronización con Firestore
             React.useEffect(() => {
                 const unsubUsuarios = db.collection('usuarios').onSnapshot(snapshot => {
                     const lista = snapshot.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
                     if (lista.length === 0) {
-                        const savedLocalUsers = localStorage.getItem('alfarero_usuarios');
-                        if (savedLocalUsers) {
-                            try {
-                                const localUsers = JSON.parse(savedLocalUsers);
-                                localUsers.forEach(u => {
-                                    const { idDoc, ...uData } = u;
-                                    db.collection('usuarios').add(uData);
-                                });
-                            } catch (e) { console.error(e); }
-                        } else {
-                            const iniciales = [
-                                { id: 1, usuario: "pastor", clave: "1234", nombre: "Pastor / Administración", rol: "pastor", debeCambiarClave: false },
-                                { id: 2, usuario: "tatiana", clave: "1234", nombre: "Tatiana Cariddi", rol: "colaborador", debeCambiarClave: false }
-                            ];
-                            iniciales.forEach(u => db.collection('usuarios').add(u));
-                        }
+                        const iniciales = [
+                            { id: 1, usuario: "pastor", clave: "1234", nombre: "Pastor / Administración", rol: "pastor", debeCambiarClave: false },
+                            { id: 2, usuario: "tatiana", clave: "1234", nombre: "Tatiana Cariddi", rol: "colaborador", debeCambiarClave: false }
+                        ];
+                        iniciales.forEach(u => db.collection('usuarios').add(u));
                     } else {
                         setUsuarios(lista);
                     }
@@ -159,22 +157,7 @@
 
                 const unsubPersonas = db.collection('personas').onSnapshot(snapshot => {
                     const lista = snapshot.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
-                    if (lista.length === 0) {
-                        const savedLocalPersonas = localStorage.getItem('alfarero_personas');
-                        if (savedLocalPersonas) {
-                            try {
-                                const localPersonas = JSON.parse(savedLocalPersonas);
-                                if (localPersonas && localPersonas.length > 0) {
-                                    localPersonas.forEach(p => {
-                                        const { idDoc, ...dataToUpload } = p;
-                                        db.collection('personas').add(dataToUpload);
-                                    });
-                                }
-                            } catch (e) { console.error("Error al migrar fichas locales:", e); }
-                        }
-                    } else {
-                        setPersonas(lista);
-                    }
+                    setPersonas(lista);
                 });
 
                 const unsubSolicitudes = db.collection('solicitudesClave').onSnapshot(snapshot => {
@@ -305,7 +288,6 @@
                     grado: grNum,
                     gradoTexto: gradosMap[grNum],
                     canal: newPersonData.canal,
-                    visitas: 0,
                     colaborador: currentUser.nombre,
                     telefono: newPersonData.telefono || '',
                     direccion: newPersonData.direccion || '',
@@ -315,12 +297,20 @@
                         : [],
                     notasPastor: newPersonData.notasPastor || '',
                     comentariosPastor: 'Pendiente de revisión pastoral.',
-                    historial: []
+                    contactos: newPersonData.contactos || ['', '', ''],
+                    visitas: newPersonData.visitas || ['', '', ''],
+                    archivado: false,
+                    motivoArchivo: null,
+                    observacionesArchivo: null
                 };
 
                 await db.collection('personas').add(newEntry);
                 setShowNewPersonModal(false);
-                setNewPersonData({ nombre: '', genero: 'femenino', grado: 3, canal: 'Evangelismo', telefono: '', direccion: '', perfil: '', peticionesOracion: '', notasPastor: '' });
+                setNewPersonData({
+                    nombre: '', genero: 'femenino', grado: 3, canal: 'Evangelismo',
+                    telefono: '', direccion: '', perfil: '', peticionesOracion: '', notasPastor: '',
+                    contactos: ['', '', ''], visitas: ['', '', '']
+                });
             };
 
             const handleSaveEditedPerson = async (e) => {
@@ -337,6 +327,39 @@
                 }
                 setIsEditingPerson(false);
                 alert('¡Ficha actualizada con éxito!');
+            };
+
+            const handleDeletePerson = async (personIdDoc) => {
+                if (confirm('¿Estás seguro de eliminar permanentemente esta ficha? Esta acción no se puede deshacer.')) {
+                    await db.collection('personas').doc(personIdDoc).delete();
+                    setSelectedPerson(null);
+                    alert('Ficha eliminada con éxito.');
+                }
+            };
+
+            const handleConfirmArchive = async () => {
+                if (!personToArchive || !personToArchive.idDoc) return;
+                await db.collection('personas').doc(personToArchive.idDoc).update({
+                    archivado: true,
+                    motivoArchivo: archiveMotivo,
+                    observacionesArchivo: archiveObs || 'Sin observaciones.'
+                });
+                setShowArchiveModal(false);
+                setPersonToArchive(null);
+                setArchiveObs('');
+                setSelectedPerson(null);
+                alert('Ficha archivada correctamente.');
+            };
+
+            const handleRestorePerson = async (personIdDoc) => {
+                if (confirm('¿Deseas restaurar esta ficha y volverla a activar para seguimiento?')) {
+                    await db.collection('personas').doc(personIdDoc).update({
+                        archivado: false,
+                        motivoArchivo: null,
+                        observacionesArchivo: null
+                    });
+                    alert('Ficha restaurada al sistema activo.');
+                }
             };
 
             const handleCreateUser = async (e) => {
@@ -382,10 +405,15 @@
                 }
             };
 
-            const filteredPersonas = personas.filter(p => {
+            // Filtrado de personas activas
+            const personasActivas = personas.filter(p => !p.archivado);
+            const personasArchivadas = personas.filter(p => p.archivado);
+
+            const filteredPersonas = personasActivas.filter(p => {
                 const matchName = p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || p.perfil.toLowerCase().includes(searchTerm.toLowerCase()) || (p.direccion && p.direccion.toLowerCase().includes(searchTerm.toLowerCase()));
                 const matchGrado = filterGrado === 'todos' || p.grado.toString() === filterGrado;
-                return matchName && matchGrado;
+                const matchCanal = filterCanal === 'todos' || p.canal === filterCanal;
+                return matchName && matchGrado && matchCanal;
             });
 
             // Versículos de ánimo rotativos diarios
@@ -570,7 +598,8 @@
                             <div className="flex items-center gap-3 flex-wrap justify-center">
                                 <nav className="flex bg-gray-100 p-1 rounded-lg text-xs font-semibold">
                                     <button onClick={() => setActiveTab('dashboard')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'dashboard' ? 'bg-brandRed text-white shadow' : 'text-gray-600'}`}>Dashboard</button>
-                                    <button onClick={() => setActiveTab('personas')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'personas' ? 'bg-brandRed text-white shadow' : 'text-gray-600'}`}>Personas</button>
+                                    <button onClick={() => setActiveTab('personas')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'personas' ? 'bg-brandRed text-white shadow' : 'text-gray-600'}`}>Personas ({personasActivas.length})</button>
+                                    <button onClick={() => setActiveTab('archivados')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'archivados' ? 'bg-brandRed text-white shadow' : 'text-gray-600'}`}>Archivados ({personasArchivadas.length})</button>
                                     <button onClick={() => setActiveTab('oracion')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'oracion' ? 'bg-brandRed text-white shadow' : 'text-gray-600'}`}>Intercesión</button>
                                     {currentUser.rol === 'pastor' && (
                                         <>
@@ -612,22 +641,72 @@
                                     <img src="Logo La Casa del Alfarero.png" alt="Logo" className="h-16 brightness-200 opacity-30 hidden sm:block" onError={(e)=>{e.target.style.display='none';}} />
                                 </div>
 
-                                {/* Frase Fija Solicitada */}
+                                {/* Frase Fija */}
                                 <div className="bg-blue-50 border-l-4 border-brandBlue p-4 rounded-xl shadow-sm text-sm text-blue-900 font-medium">
                                     💡 Recuerda orar por tus seguimientos, todo lo que hagas por ellos, dará fruto a través de tu oración.
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                    <div className="bg-white p-5 rounded-xl shadow-sm border"><p className="text-xs text-gray-500 font-semibold uppercase">Total Personas</p><p className="text-3xl font-extrabold text-brandRed mt-1">{personas.length}</p></div>
-                                    <div className="bg-white p-5 rounded-xl shadow-sm border"><p className="text-xs text-gray-500 font-semibold uppercase">En Proceso (Interesada a Invitada)</p><p className="text-3xl font-extrabold text-brandBlue mt-1">{personas.filter(p => p.grado >= 3 && p.grado <= 5).length}</p></div>
-                                    <div className="bg-white p-5 rounded-xl shadow-sm border"><p className="text-xs text-gray-500 font-semibold uppercase">Congregantes / Miembros</p><p className="text-3xl font-extrabold text-emerald-600 mt-1">{personas.filter(p => p.grado >= 6).length}</p></div>
+                                {/* Tarjetas Resumen Clicables */}
+                                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                                    <div 
+                                        onClick={() => { setFilterGrado('todos'); setFilterCanal('todos'); setActiveTab('personas'); }}
+                                        className="bg-white p-5 rounded-xl shadow-sm border hover:border-brandRed cursor-pointer transition transform hover:-translate-y-1"
+                                    >
+                                        <p className="text-xs text-gray-500 font-semibold uppercase">Total Activos</p>
+                                        <p className="text-3xl font-extrabold text-brandRed mt-1">{personasActivas.length}</p>
+                                        <span className="text-[11px] text-blue-600 font-semibold mt-2 inline-block">Ver listado ➔</span>
+                                    </div>
+                                    <div 
+                                        onClick={() => { setFilterGrado('3'); setFilterCanal('todos'); setActiveTab('personas'); }}
+                                        className="bg-white p-5 rounded-xl shadow-sm border hover:border-brandBlue cursor-pointer transition transform hover:-translate-y-1"
+                                    >
+                                        <p className="text-xs text-gray-500 font-semibold uppercase">Interesados</p>
+                                        <p className="text-3xl font-extrabold text-brandBlue mt-1">{personasActivas.filter(p => p.grado === 3).length}</p>
+                                        <span className="text-[11px] text-blue-600 font-semibold mt-2 inline-block">Filtrar nivel ➔</span>
+                                    </div>
+                                    <div 
+                                        onClick={() => { setFilterGrado('5'); setFilterCanal('todos'); setActiveTab('personas'); }}
+                                        className="bg-white p-5 rounded-xl shadow-sm border hover:border-emerald-600 cursor-pointer transition transform hover:-translate-y-1"
+                                    >
+                                        <p className="text-xs text-gray-500 font-semibold uppercase">Invitados</p>
+                                        <p className="text-3xl font-extrabold text-emerald-600 mt-1">{personasActivas.filter(p => p.grado === 5).length}</p>
+                                        <span className="text-[11px] text-blue-600 font-semibold mt-2 inline-block">Filtrar nivel ➔</span>
+                                    </div>
+                                    <div 
+                                        onClick={() => { setActiveTab('archivados'); }}
+                                        className="bg-white p-5 rounded-xl shadow-sm border hover:border-gray-600 cursor-pointer transition transform hover:-translate-y-1"
+                                    >
+                                        <p className="text-xs text-gray-500 font-semibold uppercase">Archivados</p>
+                                        <p className="text-3xl font-extrabold text-gray-700 mt-1">{personasArchivadas.length}</p>
+                                        <span className="text-[11px] text-blue-600 font-semibold mt-2 inline-block">Ver archivo ➔</span>
+                                    </div>
+                                </div>
+
+                                {/* Accesos Directos Interactivos por Canal de Invitación */}
+                                <div className="bg-white p-6 rounded-xl shadow-sm border space-y-4">
+                                    <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Filtro rápido por Canales de Invitación</h3>
+                                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                                        {Object.keys(canalesDesc).map(canalName => {
+                                            const count = personasActivas.filter(p => p.canal === canalName).length;
+                                            return (
+                                                <button
+                                                    key={canalName}
+                                                    onClick={() => { setFilterCanal(canalName); setFilterGrado('todos'); setActiveTab('personas'); }}
+                                                    className="p-3 bg-gray-50 border rounded-xl hover:bg-blue-50 hover:border-brandBlue transition text-left flex flex-col justify-between"
+                                                >
+                                                    <span className="text-xs font-bold text-gray-800">{canalName}</span>
+                                                    <span className="text-lg font-extrabold text-brandBlue mt-2">{count}</span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             </div>
                         )}
 
                         {activeTab === 'personas' && (
                             <div className="space-y-6">
-                                {/* Versículo de Ánimo Diario */}
+                                {/* Versículo de Ánimo */}
                                 <div className="bg-emerald-50 border border-emerald-200 p-5 rounded-2xl shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                     <div className="space-y-1">
                                         <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider">🌟 Versículo de Ánimo para Compartir Hoy</span>
@@ -661,7 +740,18 @@
                                             <option key={num} value={num}>{name}</option>
                                         ))}
                                     </select>
+                                    <select 
+                                        value={filterCanal} 
+                                        onChange={(e) => setFilterCanal(e.target.value)}
+                                        className="px-3 py-2 border rounded-lg text-sm bg-white font-medium text-gray-700"
+                                    >
+                                        <option value="todos">Todos los Canales</option>
+                                        {Object.keys(canalesDesc).map(cName => (
+                                            <option key={cName} value={cName}>{cName}</option>
+                                        ))}
+                                    </select>
                                 </div>
+
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {filteredPersonas.map(persona => {
                                         const nivelNombre = persona.gradoTexto || gradosMap[persona.grado];
@@ -673,9 +763,8 @@
                                                         <div className="flex items-center gap-1.5">
                                                             <span className="bg-blue-50 text-brandBlue text-xs font-bold px-2.5 py-1 rounded-full border">{nivelNombre}</span>
                                                             <button 
-                                                                onClick={() => setInfoModal({ title: `Nivel: ${nivelNombre}`, text: gradosDesc[persona.grado] || "Sin descripción disponible." })}
+                                                                onClick={() => setInfoModal({ title: `Nivel: ${nivelNombre}`, text: gradosDesc[persona.grado] || "Sin descripción." })}
                                                                 className="text-xs text-brandBlue hover:bg-blue-50 w-5 h-5 rounded-full flex items-center justify-center font-bold border border-blue-200 transition"
-                                                                title="Ver descripción de este nivel"
                                                             >
                                                                 ℹ️
                                                             </button>
@@ -684,9 +773,8 @@
                                                     <div className="flex items-center gap-1 text-xs text-gray-500 mb-1">
                                                         <span>Canal: <strong className="text-gray-700">{persona.canal}</strong></span>
                                                         <button 
-                                                            onClick={() => setInfoModal({ title: `Canal: ${persona.canal}`, text: canalesDesc[persona.canal] || "Sin descripción disponible." })}
+                                                            onClick={() => setInfoModal({ title: `Canal: ${persona.canal}`, text: canalesDesc[persona.canal] || "Sin descripción." })}
                                                             className="text-xs text-brandBlue hover:bg-blue-50 w-4 h-4 rounded-full flex items-center justify-center font-bold transition"
-                                                            title="Ver descripción de este canal"
                                                         >
                                                             ℹ️
                                                         </button>
@@ -711,10 +799,46 @@
                             </div>
                         )}
 
+                        {activeTab === 'archivados' && (
+                            <div className="space-y-6">
+                                <div className="bg-white p-6 rounded-xl shadow-sm border space-y-4">
+                                    <h2 className="text-xl font-bold text-gray-900">Fichas Archivadas / Inactivas</h2>
+                                    <p className="text-xs text-gray-500">Personas que ya no reciben seguimiento activo y el motivo de su archivo.</p>
+
+                                    {personasArchivadas.length === 0 ? (
+                                        <p className="text-xs text-gray-500 italic py-6 text-center">No hay fichas archivadas actualmente.</p>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {personasArchivadas.map(p => (
+                                                <div key={p.id || p.idDoc} className="border rounded-xl p-4 bg-gray-50 space-y-2">
+                                                    <div className="flex justify-between items-start">
+                                                        <h3 className="font-bold text-gray-900 text-base">{p.nombre}</h3>
+                                                        <span className="bg-gray-200 text-gray-800 text-[11px] font-bold px-2 py-0.5 rounded">
+                                                            Motivo: {p.motivoArchivo}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-gray-600"><strong>Observaciones:</strong> {p.observacionesArchivo}</p>
+                                                    <p className="text-xs text-gray-500">Último nivel: {p.gradoTexto} | Canal: {p.canal}</p>
+                                                    <div className="flex justify-end pt-2">
+                                                        <button 
+                                                            onClick={() => handleRestorePerson(p.idDoc)} 
+                                                            className="text-xs bg-emerald-600 text-white font-bold px-3 py-1.5 rounded hover:bg-emerald-700 transition"
+                                                        >
+                                                            ♻️ Restaurar Ficha
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {activeTab === 'oracion' && (
                             <div className="bg-white p-6 rounded-xl shadow-sm border space-y-4">
                                 <h2 className="text-xl font-bold text-gray-900">Motivos de Oración Activos</h2>
-                                {personas.map(persona => persona.pedidosOracion && persona.pedidosOracion.length > 0 && (
+                                {personasActivas.map(persona => persona.pedidosOracion && persona.pedidosOracion.length > 0 && (
                                     <div key={persona.id || persona.idDoc} className="border rounded-lg p-4 bg-gray-50">
                                         <div className="flex justify-between items-center mb-1">
                                             <h4 className="font-bold text-brandBlue">{persona.nombre}</h4>
@@ -732,11 +856,11 @@
                             <div className="space-y-6">
                                 <div className="bg-white p-6 rounded-xl shadow-sm border">
                                     <h2 className="text-xl font-bold text-gray-900 mb-2">Desempeño y Seguimiento de Colaboradores</h2>
-                                    <p className="text-xs text-gray-500 mb-6">Listado de hermanos colaboradores y las almas que tienen asignadas en el ministerio.</p>
+                                    <p className="text-xs text-gray-500 mb-6">Listado de hermanos colaboradores y las almas activas que tienen asignadas.</p>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         {usuarios.filter(u => u.rol === 'colaborador').map(colab => {
-                                            const almasColab = personas.filter(p => p.colaborador === colab.nombre);
+                                            const almasColab = personasActivas.filter(p => p.colaborador === colab.nombre);
                                             return (
                                                 <div key={colab.id || colab.idDoc} className="border rounded-xl p-5 bg-gray-50 space-y-3">
                                                     <div className="flex justify-between items-start border-b pb-2">
@@ -745,7 +869,7 @@
                                                             <p className="text-xs text-gray-500">Usuario: {colab.usuario}</p>
                                                         </div>
                                                         <span className="bg-brandRed text-white font-bold text-xs px-2.5 py-1 rounded-full shadow">
-                                                            {almasColab.length} almas a cargo
+                                                            {almasColab.length} almas activas
                                                         </span>
                                                     </div>
 
@@ -762,13 +886,6 @@
                                                                             <div className="flex items-center gap-1.5">
                                                                                 <span className="font-bold text-gray-800">{p.nombre}</span>
                                                                                 <span className="text-gray-500">({nivelNombre})</span>
-                                                                                <button 
-                                                                                    onClick={() => setInfoModal({ title: `Nivel: ${nivelNombre}`, text: gradosDesc[p.grado] || "Sin descripción." })}
-                                                                                    className="text-[10px] text-brandBlue hover:bg-blue-50 w-4 h-4 rounded-full flex items-center justify-center font-bold"
-                                                                                    title="Ver descripción"
-                                                                                >
-                                                                                    ℹ️
-                                                                                </button>
                                                                             </div>
                                                                             <button onClick={() => { setSelectedPerson(p); setIsEditingPerson(false); }} className="text-brandBlue font-semibold hover:underline">Ver Ficha</button>
                                                                         </div>
@@ -860,43 +977,6 @@
                                         </div>
                                     </form>
                                 </div>
-
-                                <div className="bg-white p-6 rounded-xl shadow-sm border">
-                                    <h3 className="text-lg font-bold text-gray-900 mb-4">Usuarios Habilitados</h3>
-                                    <div className="divide-y">
-                                        {usuarios.map(u => (
-                                            <div key={u.id || u.idDoc} className="py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-sm">
-                                                <div>
-                                                    <p className="font-bold text-gray-800">{u.nombre}</p>
-                                                    <p className="text-xs text-gray-500">Usuario: <span className="font-semibold text-gray-700">{u.usuario}</span> • Clave: <span className="font-mono bg-gray-100 px-2 py-0.5 rounded text-gray-600">••••••••</span></p>
-                                                </div>
-                                                <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
-                                                    <span className="bg-gray-100 text-gray-700 text-xs px-2.5 py-1 rounded-full font-bold uppercase">{u.rol}</span>
-                                                    {editingPasswordUserId === u.id ? (
-                                                        <div className="flex items-center gap-1">
-                                                            <input 
-                                                                type="text" 
-                                                                placeholder="Nueva clave" 
-                                                                value={newPasswordValue} 
-                                                                onChange={e => setNewPasswordValue(e.target.value)}
-                                                                className="p-1 border rounded text-xs w-28"
-                                                            />
-                                                            <button onClick={() => handleChangePasswordAdmin(u.id, u.idDoc)} className="bg-emerald-600 text-white px-2 py-1 rounded text-xs font-bold">Guardar</button>
-                                                            <button onClick={() => setEditingPasswordUserId(null)} className="bg-gray-300 text-gray-700 px-2 py-1 rounded text-xs">✕</button>
-                                                        </div>
-                                                    ) : (
-                                                        <button onClick={() => { setEditingPasswordUserId(u.id); setNewPasswordValue(''); }} className="text-xs bg-blue-50 text-brandBlue font-semibold px-2.5 py-1 rounded border border-blue-200">
-                                                            Restablecer Clave
-                                                        </button>
-                                                    )}
-                                                    <button onClick={() => handleDeleteUser(u.id, u.idDoc, u.rol)} className="text-xs bg-red-50 text-red-700 font-semibold px-2.5 py-1 rounded border border-red-200 hover:bg-red-100">
-                                                        Eliminar
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
                             </div>
                         )}
                     </main>
@@ -923,15 +1003,7 @@
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center justify-between">
-                                                <span>Nivel Inicial</span>
-                                                <span 
-                                                    onClick={() => setInfoModal({ title: "Acerca de los Niveles", text: "Indica el grado de madurez o el punto en el que se encuentra la persona dentro de su proceso de seguimiento." })} 
-                                                    className="text-brandBlue cursor-pointer text-xs font-normal"
-                                                >
-                                                    ℹ️ Info
-                                                </span>
-                                            </label>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Nivel Inicial</label>
                                             <select value={newPersonData.grado} onChange={e=>setNewPersonData({...newPersonData, grado: e.target.value})} className="w-full p-2 border rounded text-sm">
                                                 {Object.entries(gradosMap).map(([num, name]) => (
                                                     <option key={num} value={num}>{name}</option>
@@ -941,21 +1013,11 @@
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center justify-between">
-                                                <span>Canal de Origen</span>
-                                                <span 
-                                                    onClick={() => setInfoModal({ title: "Acerca de los Canales", text: "El canal de origen detalla por qué medio o vía la persona llegó a la iglesia o fue contactada." })} 
-                                                    className="text-brandBlue cursor-pointer text-xs font-normal"
-                                                >
-                                                    ℹ️ Info
-                                                </span>
-                                            </label>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Canal de Origen</label>
                                             <select value={newPersonData.canal} onChange={e=>setNewPersonData({...newPersonData, canal: e.target.value})} className="w-full p-2 border rounded text-sm">
-                                                <option value="Evangelismo">Evangelismo</option>
-                                                <option value="Allegado">Allegado</option>
-                                                <option value="Redes Sociales">Redes Sociales</option>
-                                                <option value="Google Maps">Google Maps</option>
-                                                <option value="Traspaso">Traspaso</option>
+                                                {Object.keys(canalesDesc).map(cName => (
+                                                    <option key={cName} value={cName}>{cName}</option>
+                                                ))}
                                             </select>
                                         </div>
                                         <div>
@@ -969,15 +1031,7 @@
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-gray-700 mb-1">Perfil / Notas de Contexto</label>
-                                        <textarea rows="3" value={newPersonData.perfil} onChange={e=>setNewPersonData({...newPersonData, perfil: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Detalles de la persona..."></textarea>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-700 mb-1">Petición de Oración</label>
-                                        <input type="text" value={newPersonData.peticionesOracion} onChange={e=>setNewPersonData({...newPersonData, peticionesOracion: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Ej: Salud" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-700 mb-1">Notas para el Pastor</label>
-                                        <textarea rows="2" value={newPersonData.notasPastor} onChange={e=>setNewPersonData({...newPersonData, notasPastor: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Mensaje o reporte para el pastor..."></textarea>
+                                        <textarea rows="2" value={newPersonData.perfil} onChange={e=>setNewPersonData({...newPersonData, perfil: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Detalles..."></textarea>
                                     </div>
                                     <div className="flex justify-end gap-2 pt-3 border-t">
                                         <button type="button" onClick={() => setShowNewPersonModal(false)} className="px-4 py-2 border rounded text-xs font-semibold">Cancelar</button>
@@ -1045,6 +1099,30 @@
                                             </a>
                                         </div>
 
+                                        {/* ÚLTIMOS 3 CONTACTOS Y 3 VISITAS */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="bg-gray-50 p-3 rounded-xl border">
+                                                <h4 className="font-bold text-xs text-gray-700 uppercase mb-2">📞 Últimos 3 Contactos Telefónicos</h4>
+                                                {(!selectedPerson.contactos || selectedPerson.contactos.every(c => !c)) ? (
+                                                    <p className="text-xs text-gray-500 italic">Sin registros recientes.</p>
+                                                ) : (
+                                                    <ul className="list-disc list-inside text-xs space-y-1 text-gray-700">
+                                                        {selectedPerson.contactos.map((c, i) => c ? <li key={i}>{c}</li> : null)}
+                                                    </ul>
+                                                )}
+                                            </div>
+                                            <div className="bg-gray-50 p-3 rounded-xl border">
+                                                <h4 className="font-bold text-xs text-gray-700 uppercase mb-2">🏠 Últimas 3 Visitas (o Motivo)</h4>
+                                                {(!selectedPerson.visitas || selectedPerson.visitas.every(v => !v)) ? (
+                                                    <p className="text-xs text-gray-500 italic">Sin registros recientes.</p>
+                                                ) : (
+                                                    <ul className="list-disc list-inside text-xs space-y-1 text-gray-700">
+                                                        {selectedPerson.visitas.map((v, i) => v ? <li key={i}>{v}</li> : null)}
+                                                    </ul>
+                                                )}
+                                            </div>
+                                        </div>
+
                                         {selectedPerson.direccion && (
                                             <div className="bg-blue-50 p-3 rounded border border-blue-200 flex justify-between items-center">
                                                 <div>
@@ -1067,38 +1145,31 @@
                                             <p className="text-gray-600 bg-gray-50 p-3 rounded">{selectedPerson.perfil}</p>
                                         </div>
 
-                                        <div>
-                                            <h4 className="font-bold text-gray-700 mb-1">Pedidos de Oración</h4>
-                                            {selectedPerson.pedidosOracion && selectedPerson.pedidosOracion.map((p, i) => (
-                                                <div key={i} className="text-xs bg-amber-50 p-2 rounded border mb-1">
-                                                    <strong>{p.categoria}:</strong> {p.texto}
-                                                </div>
-                                            ))}
-                                        </div>
-
                                         <div className="bg-gray-50 p-3 rounded border">
                                             <h4 className="font-bold text-gray-700 text-xs uppercase mb-1">Notas para el Pastor</h4>
                                             <p className="text-gray-700 text-xs">{selectedPerson.notasPastor || 'Sin notas registradas.'}</p>
                                         </div>
 
-                                        <div className="bg-blue-50 p-3 rounded border border-blue-200">
-                                            <h4 className="font-bold text-brandBlue text-xs uppercase mb-1">Comentarios del Pastor</h4>
-                                            <p className="text-gray-700 text-xs">{selectedPerson.comentariosPastor || 'Sin comentarios pastorales.'}</p>
+                                        <div className="flex justify-between items-center pt-3 border-t">
+                                            <button 
+                                                onClick={() => { setPersonToArchive(selectedPerson); setShowArchiveModal(true); }}
+                                                className="text-xs bg-amber-100 text-amber-800 font-bold px-3 py-2 rounded-lg hover:bg-amber-200 transition"
+                                            >
+                                                📁 Dejar de seguir / Archivar
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDeletePerson(selectedPerson.idDoc)}
+                                                className="text-xs bg-red-50 text-red-700 font-bold px-3 py-2 rounded-lg hover:bg-red-100 transition border border-red-200"
+                                            >
+                                                🗑️ Eliminar Ficha
+                                            </button>
                                         </div>
                                     </div>
                                 ) : (
                                     <form onSubmit={handleSaveEditedPerson} className="space-y-3 text-sm">
                                         <div className="grid grid-cols-2 gap-3">
                                             <div>
-                                                <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center justify-between">
-                                                    <span>Nivel Actual</span>
-                                                    <span 
-                                                        onClick={() => setInfoModal({ title: "Acerca de los Niveles", text: "Selecciona el nuevo nivel en el que se encuentra la persona." })} 
-                                                        className="text-brandBlue cursor-pointer text-[11px]"
-                                                    >
-                                                        ℹ️ Info
-                                                    </span>
-                                                </label>
+                                                <label className="block text-xs font-bold text-gray-700 mb-1">Nivel Actual</label>
                                                 <select 
                                                     value={selectedPerson.grado} 
                                                     onChange={e => setSelectedPerson({...selectedPerson, grado: parseInt(e.target.value)})}
@@ -1130,7 +1201,6 @@
                                                     value={selectedPerson.telefono || ''} 
                                                     onChange={e => setSelectedPerson({...selectedPerson, telefono: e.target.value})}
                                                     className="w-full p-2 border rounded text-xs"
-                                                    placeholder="Ej: 54911xxxxxxxx"
                                                 />
                                             </div>
                                             <div>
@@ -1152,6 +1222,49 @@
                                             </div>
                                         </div>
 
+                                        {/* EDITAR CONTACTOS Y VISITAS */}
+                                        <div className="space-y-2 border p-3 rounded-lg bg-gray-50">
+                                            <h4 className="font-bold text-xs text-gray-700 uppercase">Actualizar Historial Reciente</h4>
+                                            <div>
+                                                <label className="block text-[11px] font-semibold text-gray-600 mb-1">Últimos 3 Contactos (Ej: Llamada 10/11 - Mensaje 12/11 - Llamada 14/11)</label>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    {[0, 1, 2].map(idx => (
+                                                        <input 
+                                                            key={idx}
+                                                            type="text"
+                                                            placeholder={`Contacto ${idx+1}`}
+                                                            value={selectedPerson.contactos ? selectedPerson.contactos[idx] || '' : ''}
+                                                            onChange={e => {
+                                                                const newC = [...(selectedPerson.contactos || ['', '', ''])];
+                                                                newC[idx] = e.target.value;
+                                                                setSelectedPerson({...selectedPerson, contactos: newC});
+                                                            }}
+                                                            className="p-1.5 border rounded text-xs"
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-[11px] font-semibold text-gray-600 mb-1">Últimas 3 Visitas o Motivo de Inasistencia</label>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    {[0, 1, 2].map(idx => (
+                                                        <input 
+                                                            key={idx}
+                                                            type="text"
+                                                            placeholder={`Visita/Motivo ${idx+1}`}
+                                                            value={selectedPerson.visitas ? selectedPerson.visitas[idx] || '' : ''}
+                                                            onChange={e => {
+                                                                const newV = [...(selectedPerson.visitas || ['', '', ''])];
+                                                                newV[idx] = e.target.value;
+                                                                setSelectedPerson({...selectedPerson, visitas: newV});
+                                                            }}
+                                                            className="p-1.5 border rounded text-xs"
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+
                                         <div>
                                             <label className="block text-xs font-bold text-gray-700 mb-1">Dirección</label>
                                             <input 
@@ -1165,49 +1278,12 @@
                                         <div>
                                             <label className="block text-xs font-bold text-gray-700 mb-1">Perfil / Notas</label>
                                             <textarea 
-                                                rows="3" 
+                                                rows="2" 
                                                 value={selectedPerson.perfil} 
                                                 onChange={e => setSelectedPerson({...selectedPerson, perfil: e.target.value})}
                                                 className="w-full p-2 border rounded text-xs"
                                             ></textarea>
                                         </div>
-
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-700 mb-1">Pedido de Oración Principal</label>
-                                            <input 
-                                                type="text" 
-                                                value={selectedPerson.pedidosOracion && selectedPerson.pedidosOracion[0] ? selectedPerson.pedidosOracion[0].texto : ''} 
-                                                onChange={e => {
-                                                    const newP = selectedPerson.pedidosOracion ? [...selectedPerson.pedidosOracion] : [];
-                                                    if(newP[0]) newP[0].texto = e.target.value;
-                                                    else newP.push({ categoria: "General", texto: e.target.value });
-                                                    setSelectedPerson({...selectedPerson, pedidosOracion: newP});
-                                                }}
-                                                className="w-full p-2 border rounded text-xs"
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-700 mb-1">Notas para el Pastor</label>
-                                            <textarea 
-                                                rows="2" 
-                                                value={selectedPerson.notasPastor || ''} 
-                                                onChange={e => setSelectedPerson({...selectedPerson, notasPastor: e.target.value})}
-                                                className="w-full p-2 border rounded text-xs"
-                                            ></textarea>
-                                        </div>
-
-                                        {currentUser.rol === 'pastor' && (
-                                            <div className="bg-blue-50 p-3 rounded border border-blue-200">
-                                                <label className="block text-xs font-bold text-brandBlue uppercase mb-1">Comentarios del Pastor (Exclusivo Pastor)</label>
-                                                <textarea 
-                                                    rows="2" 
-                                                    value={selectedPerson.comentariosPastor || ''} 
-                                                    onChange={e => setSelectedPerson({...selectedPerson, comentariosPastor: e.target.value})}
-                                                    className="w-full p-2 border rounded text-xs bg-white"
-                                                ></textarea>
-                                            </div>
-                                        )}
 
                                         <div className="flex justify-end gap-2 pt-3 border-t">
                                             <button type="button" onClick={() => setIsEditingPerson(false)} className="px-3 py-1.5 border rounded text-xs">Cancelar</button>
@@ -1223,10 +1299,57 @@
                         </div>
                     )}
 
+                    {/* MODAL DE ARCHIVAR CON MOTIVOS */}
+                    {showArchiveModal && (
+                        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+                            <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+                                <h3 className="font-bold text-gray-900 text-base border-b pb-2">📁 Archivar Seguimiento</h3>
+                                <p className="text-xs text-gray-600">Selecciona el motivo por el cual se deja de dar seguimiento a esta persona:</p>
+                                
+                                <div className="space-y-2">
+                                    {[
+                                        "Nuevo miembro",
+                                        "Eligió otra congregación",
+                                        "No muestra interés ni contesta",
+                                        "Dijo expresamente que no quiere congregarse ni que le escribamos",
+                                        "Otros motivos"
+                                    ].map(motivo => (
+                                        <label key={motivo} className="flex items-center gap-2 text-xs font-medium text-gray-800 cursor-pointer p-2 rounded hover:bg-gray-50 border">
+                                            <input 
+                                                type="radio" 
+                                                name="archiveMotivo" 
+                                                value={motivo} 
+                                                checked={archiveMotivo === motivo}
+                                                onChange={e => setArchiveMotivo(e.target.value)}
+                                            />
+                                            {motivo}
+                                        </label>
+                                    ))}
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 mb-1">Observaciones (Opcional)</label>
+                                    <textarea 
+                                        rows="2" 
+                                        value={archiveObs} 
+                                        onChange={e => setArchiveObs(e.target.value)} 
+                                        className="w-full p-2 border rounded text-xs" 
+                                        placeholder="Detalles adicionales..."
+                                    ></textarea>
+                                </div>
+
+                                <div className="flex justify-end gap-2 pt-3 border-t">
+                                    <button onClick={() => setShowArchiveModal(false)} className="px-3 py-1.5 border rounded text-xs">Cancelar</button>
+                                    <button onClick={handleConfirmArchive} className="px-4 py-1.5 bg-amber-600 text-white rounded text-xs font-bold hover:bg-amber-700">Confirmar Archivo</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* MODAL FLOTANTE GENERAL DE INFORMACIÓN (ℹ️) */}
                     {infoModal && (
                         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-                            <div className="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl border border-gray-100 animate-in fade-in zoom-in duration-150">
+                            <div className="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl border border-gray-100">
                                 <div className="flex justify-between items-center border-b pb-3">
                                     <h3 className="font-bold text-gray-900 text-base flex items-center gap-2">
                                         ℹ️ {infoModal.title}
