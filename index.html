@@ -126,8 +126,8 @@
                 perfil: '',
                 peticionesOracion: '',
                 notasPastor: '',
-                contactos: ['', '', ''], // tipo y detalle o fecha
-                visitas: ['', '', '']    // fecha/motivo
+                contactos: ['', '', ''],
+                visitas: ['', '', '']
             });
 
             const [newUserData, setNewUserData] = React.useState({
@@ -140,7 +140,7 @@
             const [editingPasswordUserId, setEditingPasswordUserId] = React.useState(null);
             const [newPasswordValue, setNewPasswordValue] = React.useState('');
 
-            // Sincronización con Firestore
+            // Sincronización con Firestore y manejo del botón Atrás del celular
             React.useEffect(() => {
                 const unsubUsuarios = db.collection('usuarios').onSnapshot(snapshot => {
                     const lista = snapshot.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
@@ -172,6 +172,27 @@
                     unsubSolicitudes();
                 };
             }, []);
+
+            // Control del botón Atrás (historial del navegador móvil)
+            React.useEffect(() => {
+                const handlePopState = (event) => {
+                    if (infoModal) {
+                        setInfoModal(null);
+                    } else if (showArchiveModal) {
+                        setShowArchiveModal(false);
+                    } else if (showNewPersonModal) {
+                        setShowNewPersonModal(false);
+                    } else if (selectedPerson) {
+                        setSelectedPerson(null);
+                        setIsEditingPerson(false);
+                    } else if (activeTab !== 'dashboard') {
+                        setActiveTab('dashboard');
+                    }
+                };
+
+                window.addEventListener('popstate', handlePopState);
+                return () => window.removeEventListener('popstate', handlePopState);
+            }, [infoModal, showArchiveModal, showNewPersonModal, selectedPerson, activeTab]);
 
             React.useEffect(() => {
                 if (currentUser) {
@@ -1013,7 +1034,15 @@
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-700 mb-1">Canal de Origen</label>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center justify-between">
+                                                <span>Canal de Origen</span>
+                                                <span 
+                                                    onClick={() => setInfoModal({ title: "Canales de Invitación", text: "Selecciona el canal por el cual llegó la persona." })} 
+                                                    className="text-brandBlue cursor-pointer text-[11px]"
+                                                >
+                                                    ℹ️ Info
+                                                </span>
+                                            </label>
                                             <select value={newPersonData.canal} onChange={e=>setNewPersonData({...newPersonData, canal: e.target.value})} className="w-full p-2 border rounded text-sm">
                                                 {Object.keys(canalesDesc).map(cName => (
                                                     <option key={cName} value={cName}>{cName}</option>
@@ -1181,14 +1210,23 @@
                                                 </select>
                                             </div>
                                             <div>
-                                                <label className="block text-xs font-bold text-gray-700 mb-1">Género</label>
+                                                <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center justify-between">
+                                                    <span>Canal de Invitación</span>
+                                                    <span 
+                                                        onClick={() => setInfoModal({ title: "Canales de Invitación", text: "Modifica el canal por el cual llegó la persona." })} 
+                                                        className="text-brandBlue cursor-pointer text-[11px]"
+                                                    >
+                                                        ℹ️ Info
+                                                    </span>
+                                                </label>
                                                 <select 
-                                                    value={selectedPerson.genero || 'femenino'} 
-                                                    onChange={e => setSelectedPerson({...selectedPerson, genero: e.target.value})}
+                                                    value={selectedPerson.canal} 
+                                                    onChange={e => setSelectedPerson({...selectedPerson, canal: e.target.value})}
                                                     className="w-full p-2 border rounded text-xs bg-white"
                                                 >
-                                                    <option value="femenino">Femenino (Anímala)</option>
-                                                    <option value="masculino">Masculino (Anímalo)</option>
+                                                    {Object.keys(canalesDesc).map(cName => (
+                                                        <option key={cName} value={cName}>{cName}</option>
+                                                    ))}
                                                 </select>
                                             </div>
                                         </div>
@@ -1226,7 +1264,7 @@
                                         <div className="space-y-2 border p-3 rounded-lg bg-gray-50">
                                             <h4 className="font-bold text-xs text-gray-700 uppercase">Actualizar Historial Reciente</h4>
                                             <div>
-                                                <label className="block text-[11px] font-semibold text-gray-600 mb-1">Últimos 3 Contactos (Ej: Llamada 10/11 - Mensaje 12/11 - Llamada 14/11)</label>
+                                                <label className="block text-[11px] font-semibold text-gray-600 mb-1">Últimos 3 Contactos (Ej: Llamada 10/11 - Mensaje 12/11)</label>
                                                 <div className="grid grid-cols-3 gap-2">
                                                     {[0, 1, 2].map(idx => (
                                                         <input 
