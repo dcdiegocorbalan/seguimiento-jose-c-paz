@@ -140,7 +140,7 @@
             const [editingPasswordUserId, setEditingPasswordUserId] = React.useState(null);
             const [newPasswordValue, setNewPasswordValue] = React.useState('');
 
-            // Sincronización con Firestore y manejo del botón Atrás del celular
+            // Sincronización con Firestore
             React.useEffect(() => {
                 const unsubUsuarios = db.collection('usuarios').onSnapshot(snapshot => {
                     const lista = snapshot.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
@@ -341,7 +341,9 @@
                     const dataToUpdate = {
                         ...selectedPerson,
                         grado: grNum,
-                        gradoTexto: gradosMap[grNum]
+                        gradoTexto: gradosMap[grNum],
+                        contactos: Array.isArray(selectedPerson.contactos) ? selectedPerson.contactos : ['', '', ''],
+                        visitas: Array.isArray(selectedPerson.visitas) ? selectedPerson.visitas : ['', '', '']
                     };
                     delete dataToUpdate.idDoc;
                     await db.collection('personas').doc(selectedPerson.idDoc).update(dataToUpdate);
@@ -1132,7 +1134,7 @@
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             <div className="bg-gray-50 p-3 rounded-xl border">
                                                 <h4 className="font-bold text-xs text-gray-700 uppercase mb-2">📞 Últimos 3 Contactos Telefónicos</h4>
-                                                {(!selectedPerson.contactos || selectedPerson.contactos.every(c => !c)) ? (
+                                                {(!Array.isArray(selectedPerson.contactos) || selectedPerson.contactos.every(c => !c)) ? (
                                                     <p className="text-xs text-gray-500 italic">Sin registros recientes.</p>
                                                 ) : (
                                                     <ul className="list-disc list-inside text-xs space-y-1 text-gray-700">
@@ -1142,7 +1144,7 @@
                                             </div>
                                             <div className="bg-gray-50 p-3 rounded-xl border">
                                                 <h4 className="font-bold text-xs text-gray-700 uppercase mb-2">🏠 Últimas 3 Visitas (o Motivo)</h4>
-                                                {(!selectedPerson.visitas || selectedPerson.visitas.every(v => !v)) ? (
+                                                {(!Array.isArray(selectedPerson.visitas) || selectedPerson.visitas.every(v => !v)) ? (
                                                     <p className="text-xs text-gray-500 italic">Sin registros recientes.</p>
                                                 ) : (
                                                     <ul className="list-disc list-inside text-xs space-y-1 text-gray-700">
@@ -1271,9 +1273,9 @@
                                                             key={idx}
                                                             type="text"
                                                             placeholder={`Contacto ${idx+1}`}
-                                                            value={selectedPerson.contactos ? selectedPerson.contactos[idx] || '' : ''}
+                                                            value={Array.isArray(selectedPerson.contactos) ? selectedPerson.contactos[idx] || '' : ''}
                                                             onChange={e => {
-                                                                const newC = [...(selectedPerson.contactos || ['', '', ''])];
+                                                                const newC = Array.isArray(selectedPerson.contactos) ? [...selectedPerson.contactos] : ['', '', ''];
                                                                 newC[idx] = e.target.value;
                                                                 setSelectedPerson({...selectedPerson, contactos: newC});
                                                             }}
@@ -1290,9 +1292,9 @@
                                                             key={idx}
                                                             type="text"
                                                             placeholder={`Visita/Motivo ${idx+1}`}
-                                                            value={selectedPerson.visitas ? selectedPerson.visitas[idx] || '' : ''}
+                                                            value={Array.isArray(selectedPerson.visitas) ? selectedPerson.visitas[idx] || '' : ''}
                                                             onChange={e => {
-                                                                const newV = [...(selectedPerson.visitas || ['', '', ''])];
+                                                                const newV = Array.isArray(selectedPerson.visitas) ? [...selectedPerson.visitas] : ['', '', ''];
                                                                 newV[idx] = e.target.value;
                                                                 setSelectedPerson({...selectedPerson, visitas: newV});
                                                             }}
