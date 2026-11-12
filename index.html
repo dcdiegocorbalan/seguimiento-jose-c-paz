@@ -124,6 +124,7 @@
                 telefono: '',
                 direccion: '',
                 perfil: '',
+                temasOracion: '',
                 notasPastor: '',
                 notasColaborador: ''
             });
@@ -318,6 +319,7 @@
                     telefono: newPersonData.telefono || '',
                     direccion: newPersonData.direccion || '',
                     perfil: newPersonData.perfil || 'Sin datos de perfil.',
+                    temasOracion: newPersonData.temasOracion || '',
                     notasPastor: newPersonData.notasPastor || '',
                     notasColaborador: newPersonData.notasColaborador || '',
                     historial: [],
@@ -330,7 +332,7 @@
                 setShowNewPersonModal(false);
                 setNewPersonData({
                     nombre: '', genero: 'femenino', grado: 3, canal: 'Evangelismo',
-                    telefono: '', direccion: '', perfil: '', notasPastor: '', notasColaborador: ''
+                    telefono: '', direccion: '', perfil: '', temasOracion: '', notasPastor: '', notasColaborador: ''
                 });
             };
 
@@ -906,56 +908,55 @@
                         )}
 
                         {activeTab === 'oracion' && (
-                            <div className="bg-white p-6 rounded-xl shadow-sm border space-y-4">
-                                <h2 className="text-xl font-bold text-gray-900">Motivos de Intercesión y Notas de Seguimiento</h2>
-                                <p className="text-xs text-gray-500">Resumen de notas pastorales, notas de colaboradores e interacciones registradas.</p>
-                                
-                                {personasActivas.filter(persona => persona.notasColaborador || persona.notasPastor || (persona.historial && persona.historial.length > 0)).length === 0 ? (
-                                    <p className="text-xs text-gray-500 italic py-6 text-center">No hay registros de intercesión o notas activas todavía.</p>
-                                ) : (
-                                    <div className="space-y-4">
-                                        {personasActivas.map(persona => {
-                                            const tieneNotas = persona.notasColaborador || persona.notasPastor;
-                                            const tieneHistorial = persona.historial && persona.historial.length > 0;
-                                            if (!tieneNotas && !tieneHistorial) return null;
+                            <div className="space-y-6">
+                                <div className="bg-white p-6 rounded-xl shadow-sm border space-y-4">
+                                    <h2 className="text-xl font-bold text-gray-900">🙏 Motivos de Intercesión y Temas de Oración</h2>
+                                    <p className="text-xs text-gray-500">Listado completo de peticiones de oración registradas en las fichas y notas pastorales.</p>
+                                    
+                                    {personasActivas.filter(persona => persona.temasOracion || persona.notasColaborador || persona.notasPastor || (persona.historial && persona.historial.length > 0)).length === 0 ? (
+                                        <p className="text-xs text-gray-500 italic py-6 text-center">No hay registros de oración o intercesión activos todavía.</p>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            {personasActivas.map(persona => {
+                                                const tieneOracion = persona.temasOracion;
+                                                const tieneNotas = persona.notasColaborador || persona.notasPastor;
+                                                const tieneHistorial = persona.historial && persona.historial.length > 0;
+                                                if (!tieneOracion && !tieneNotas && !tieneHistorial) return null;
 
-                                            return (
-                                                <div key={persona.id || persona.idDoc} className="border rounded-xl p-4 bg-gray-50 space-y-3">
-                                                    <div className="flex justify-between items-center border-b pb-2">
-                                                        <h4 className="font-bold text-brandBlue text-base">{persona.nombre}</h4>
-                                                        <span className="text-xs text-gray-500 font-semibold">Seguimiento: {persona.colaborador}</span>
-                                                    </div>
-
-                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                                                        {persona.notasColaborador && (
-                                                            <div className="bg-white p-2.5 rounded border">
-                                                                <strong className="text-gray-700 block mb-1">Nota del Colaborador:</strong>
-                                                                <p className="text-gray-600">{persona.notasColaborador}</p>
-                                                            </div>
-                                                        )}
-                                                        {persona.notasPastor && (
-                                                            <div className="bg-red-50 p-2.5 rounded border border-red-200">
-                                                                <strong className="text-brandRed block mb-1">Nota del Pastor:</strong>
-                                                                <p className="text-gray-700">{persona.notasPastor}</p>
-                                                            </div>
-                                                        )}
-                                                    </div>
-
-                                                    {tieneHistorial && (
-                                                        <div className="space-y-1 pt-1">
-                                                            <p className="text-[11px] font-bold text-gray-500 uppercase">Última interacción registrada:</p>
-                                                            <div className="bg-white p-2 rounded border text-xs flex items-center gap-2">
-                                                                <span className="bg-blue-100 text-brandBlue px-2 py-0.5 rounded text-[10px] font-bold">{persona.historial[0].tipo}</span>
-                                                                <span className="font-semibold text-gray-700">{persona.historial[0].fecha}:</span>
-                                                                <span className="text-gray-600 truncate">{persona.historial[0].detalle}</span>
-                                                            </div>
+                                                return (
+                                                    <div key={persona.id || persona.idDoc} className="border rounded-xl p-4 bg-gray-50 space-y-3">
+                                                        <div className="flex justify-between items-center border-b pb-2">
+                                                            <h4 className="font-bold text-brandBlue text-base">{persona.nombre}</h4>
+                                                            <span className="text-xs text-gray-500 font-semibold">Seguimiento: {persona.colaborador}</span>
                                                         </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
+
+                                                        {persona.temasOracion && (
+                                                            <div className="bg-amber-50 p-3 rounded border border-amber-200">
+                                                                <strong className="text-amber-900 text-xs uppercase block mb-1">🕊️ Temas de Oración:</strong>
+                                                                <p className="text-gray-800 text-xs font-medium">{persona.temasOracion}</p>
+                                                            </div>
+                                                        )}
+
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                                            {persona.notasColaborador && (
+                                                                <div className="bg-white p-2.5 rounded border">
+                                                                    <strong className="text-gray-700 block mb-1">Nota del Colaborador:</strong>
+                                                                    <p className="text-gray-600">{persona.notasColaborador}</p>
+                                                                </div>
+                                                            )}
+                                                            {persona.notasPastor && (
+                                                                <div className="bg-red-50 p-2.5 rounded border border-red-200">
+                                                                    <strong className="text-brandRed block mb-1">Nota del Pastor:</strong>
+                                                                    <p className="text-gray-700">{persona.notasPastor}</p>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         )}
 
@@ -1186,6 +1187,10 @@
                                         <textarea rows="2" value={newPersonData.perfil} onChange={e=>setNewPersonData({...newPersonData, perfil: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Detalles..."></textarea>
                                     </div>
                                     <div>
+                                        <label className="block text-xs font-bold text-amber-900 mb-1">🙏 Temas de Oración</label>
+                                        <input type="text" value={newPersonData.temasOracion} onChange={e=>setNewPersonData({...newPersonData, temasOracion: e.target.value})} className="w-full p-2 border rounded text-sm border-amber-300 bg-amber-50" placeholder="Peticiones de oración..." />
+                                    </div>
+                                    <div>
                                         <label className="block text-xs font-bold text-gray-700 mb-1">Nota del Colaborador</label>
                                         <input type="text" value={newPersonData.notasColaborador} onChange={e=>setNewPersonData({...newPersonData, notasColaborador: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Notas iniciales del colaborador..." />
                                     </div>
@@ -1259,6 +1264,12 @@
                                             >
                                                 💬 {selectedPerson.genero === 'masculino' ? 'Anímalo ahora con un mensajito' : 'Anímala ahora con un mensajito'}
                                             </a>
+                                        </div>
+
+                                        {/* TEMAS DE ORACIÓN */}
+                                        <div className="bg-amber-50 p-3 rounded-xl border border-amber-200">
+                                            <h4 className="font-bold text-xs text-amber-900 uppercase mb-1">🙏 Temas de Oración</h4>
+                                            <p className="text-xs text-gray-800 font-medium">{selectedPerson.temasOracion || 'Sin temas de oración registrados.'}</p>
                                         </div>
 
                                         {/* LÍNEA DE TIEMPO / HISTORIAL COMPLETO DE INTERACCIONES */}
@@ -1432,6 +1443,16 @@
                                                     <input type="text" disabled value={selectedPerson.colaborador} className="w-full p-2 border rounded text-xs bg-gray-100 text-gray-500" />
                                                 )}
                                             </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-bold text-amber-900 mb-1">🙏 Temas de Oración</label>
+                                            <input 
+                                                type="text" 
+                                                value={selectedPerson.temasOracion || ''} 
+                                                onChange={e => setSelectedPerson({...selectedPerson, temasOracion: e.target.value})}
+                                                className="w-full p-2 border rounded text-xs border-amber-300 bg-amber-50"
+                                            />
                                         </div>
 
                                         <div>
