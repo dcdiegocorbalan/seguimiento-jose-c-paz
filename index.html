@@ -309,10 +309,10 @@
                 e.preventDefault();
                 if (!newPersonData.nombre.trim()) return;
 
-                const grNum = parseInt(newPersonData.grado];
+                const grNum = parseInt(newPersonData.grado);
                 let colabAsignado = newPersonData.colaborador;
                 if (!colabAsignado) {
-                    colabAsignado = currentUser.rol === 'pastor' ? currentUser.nombre : currentUser.nombre;
+                    colabAsignado = currentUser.nombre;
                 }
 
                 const newEntry = {
