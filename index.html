@@ -121,6 +121,7 @@
                 genero: 'femenino',
                 grado: 3,
                 canal: 'Evangelismo',
+                colaborador: '',
                 telefono: '',
                 direccion: '',
                 perfil: '',
@@ -308,7 +309,12 @@
                 e.preventDefault();
                 if (!newPersonData.nombre.trim()) return;
 
-                const grNum = parseInt(newPersonData.grado);
+                const grNum = parseInt(newPersonData.grado];
+                let colabAsignado = newPersonData.colaborador;
+                if (!colabAsignado) {
+                    colabAsignado = currentUser.rol === 'pastor' ? currentUser.nombre : currentUser.nombre;
+                }
+
                 const newEntry = {
                     id: Date.now(),
                     nombre: newPersonData.nombre,
@@ -316,7 +322,7 @@
                     grado: grNum,
                     gradoTexto: gradosMap[grNum],
                     canal: newPersonData.canal,
-                    colaborador: currentUser.rol === 'pastor' ? 'Sin asignar' : currentUser.nombre,
+                    colaborador: colabAsignado,
                     telefono: newPersonData.telefono || '',
                     direccion: newPersonData.direccion || '',
                     perfil: newPersonData.perfil || 'Sin datos de perfil.',
@@ -333,7 +339,7 @@
                 await db.collection('personas').add(newEntry);
                 setShowNewPersonModal(false);
                 setNewPersonData({
-                    nombre: '', genero: 'femenino', grado: 3, canal: 'Evangelismo',
+                    nombre: '', genero: 'femenino', grado: 3, canal: 'Evangelismo', colaborador: '',
                     telefono: '', direccion: '', perfil: '', temasOracion: '', notasPastor: '', notasColaborador: '', notasPrivadasPastor: ''
                 });
             };
@@ -478,9 +484,9 @@
             const personasActivas = personas.filter(p => !p.archivado);
             const personasArchivadas = personas.filter(p => p.archivado);
 
-            // Lista única de colaboradores para selectores (sin duplicados)
+            // Lista única de colaboradores y pastores disponibles para selectores (sin duplicados)
             const colaboradoresUnicos = Array.from(
-                new Set(usuarios.filter(u => u.rol === 'colaborador').map(u => u.nombre))
+                new Set(usuarios.map(u => u.nombre))
             );
 
             const filteredPersonas = personasActivas.filter(p => {
@@ -970,18 +976,18 @@
                         {activeTab === 'colaboradores' && currentUser.rol === 'pastor' && (
                             <div className="space-y-6">
                                 <div className="bg-white p-6 rounded-xl shadow-sm border">
-                                    <h2 className="text-xl font-bold text-gray-900 mb-2">Desempeño y Seguimiento de Colaboradores</h2>
-                                    <p className="text-xs text-gray-500 mb-6">Listado de hermanos colaboradores y las almas activas que tienen asignadas.</p>
+                                    <h2 className="text-xl font-bold text-gray-900 mb-2">Desempeño y Seguimiento de Colaboradores y Pastores</h2>
+                                    <p className="text-xs text-gray-500 mb-6">Listado de hermanos y almas activas asignadas.</p>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        {usuarios.filter(u => u.rol === 'colaborador').map(colab => {
+                                        {usuarios.map(colab => {
                                             const almasColab = personasActivas.filter(p => p.colaborador === colab.nombre);
                                             return (
                                                 <div key={colab.id || colab.idDoc} className="border rounded-xl p-5 bg-gray-50 space-y-3">
                                                     <div className="flex justify-between items-start border-b pb-2">
                                                         <div>
                                                             <h3 className="font-bold text-gray-900 text-base">{colab.nombre}</h3>
-                                                            <p className="text-xs text-gray-500">Usuario: {colab.usuario}</p>
+                                                            <p className="text-xs text-gray-500">Usuario: {colab.usuario} • Rol: <span className="uppercase font-semibold">{colab.rol}</span></p>
                                                         </div>
                                                         <span className="bg-brandRed text-white font-bold text-xs px-2.5 py-1 rounded-full shadow">
                                                             {almasColab.length} almas activas
@@ -1182,13 +1188,28 @@
                                             </select>
                                         </div>
                                         <div>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Colaborador / Pastor a Cargo</label>
+                                            <select 
+                                                value={newPersonData.colaborador} 
+                                                onChange={e => setNewPersonData({...newPersonData, colaborador: e.target.value})}
+                                                className="w-full p-2 border rounded text-sm bg-white"
+                                            >
+                                                <option value="">Por defecto (Tú mismo: {currentUser.nombre})</option>
+                                                {colaboradoresUnicos.map(nombreColab => (
+                                                    <option key={nombreColab} value={nombreColab}>{nombreColab}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
                                             <label className="block text-xs font-bold text-gray-700 mb-1">Teléfono / WhatsApp</label>
                                             <input type="text" value={newPersonData.telefono} onChange={e=>setNewPersonData({...newPersonData, telefono: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Ej: 54911xxxxxxxx" />
                                         </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-700 mb-1">Dirección (Ubicación)</label>
-                                        <input type="text" value={newPersonData.direccion} onChange={e=>setNewPersonData({...newPersonData, direccion: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Ej: Av. San Martín 1234, José C. Paz" />
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Dirección (Ubicación)</label>
+                                            <input type="text" value={newPersonData.direccion} onChange={e=>setNewPersonData({...newPersonData, direccion: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Ej: Av. San Martín 1234" />
+                                        </div>
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-gray-700 mb-1">Perfil / Notas de Contexto</label>
@@ -1200,13 +1221,13 @@
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-gray-700 mb-1">Nota del Colaborador</label>
-                                        <input type="text" value={newPersonData.notasColaborador} onChange={e=>setNewPersonData({...newPersonData, notasColaborador: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Notas iniciales del colaborador..." />
+                                        <input type="text" value={newPersonData.notasColaborador} onChange={e=>setNewPersonData({...newPersonData, notasColaborador: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Notas iniciales..." />
                                     </div>
                                     {currentUser.rol === 'pastor' && (
                                         <>
                                             <div>
                                                 <label className="block text-xs font-bold text-brandRed mb-1">Nota para el Pastor (Visible para colaborador)</label>
-                                                <input type="text" value={newPersonData.notasPastor} onChange={e=>setNewPersonData({...newPersonData, notasPastor: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Instrucción o seguimiento compartido..." />
+                                                <input type="text" value={newPersonData.notasPastor} onChange={e=>setNewPersonData({...newPersonData, notasPastor: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Instrucción..." />
                                             </div>
                                             <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
                                                 <label className="block text-xs font-bold text-purple-900 mb-1">🔒 Comentarios Privados del Pastor (Solo visible en sesión Pastoral)</label>
@@ -1480,21 +1501,17 @@
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-xs font-bold text-gray-700 mb-1">Colaborador a Cargo</label>
-                                                {currentUser.rol === 'pastor' ? (
-                                                    <select 
-                                                        value={selectedPerson.colaborador || ''} 
-                                                        onChange={e => setSelectedPerson({...selectedPerson, colaborador: e.target.value})}
-                                                        className="w-full p-2 border rounded text-xs bg-white"
-                                                    >
-                                                        <option value="">Seleccionar colaborador</option>
-                                                        {colaboradoresUnicos.map(nombreColab => (
-                                                            <option key={nombreColab} value={nombreColab}>{nombreColab}</option>
-                                                        ))}
-                                                    </select>
-                                                ) : (
-                                                    <input type="text" disabled value={selectedPerson.colaborador} className="w-full p-2 border rounded text-xs bg-gray-100 text-gray-500" />
-                                                )}
+                                                <label className="block text-xs font-bold text-gray-700 mb-1">Colaborador / Pastor a Cargo</label>
+                                                <select 
+                                                    value={selectedPerson.colaborador || ''} 
+                                                    onChange={e => setSelectedPerson({...selectedPerson, colaborador: e.target.value})}
+                                                    className="w-full p-2 border rounded text-xs bg-white font-semibold text-brandBlue"
+                                                >
+                                                    <option value="">Seleccionar encargado</option>
+                                                    {colaboradoresUnicos.map(nombreColab => (
+                                                        <option key={nombreColab} value={nombreColab}>{nombreColab}</option>
+                                                    ))}
+                                                </select>
                                             </div>
                                         </div>
 
