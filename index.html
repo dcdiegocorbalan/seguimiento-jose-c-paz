@@ -126,7 +126,8 @@
                 perfil: '',
                 temasOracion: '',
                 notasPastor: '',
-                notasColaborador: ''
+                notasColaborador: '',
+                notasPrivadasPastor: ''
             });
 
             const [newUserData, setNewUserData] = React.useState({
@@ -322,6 +323,7 @@
                     temasOracion: newPersonData.temasOracion || '',
                     notasPastor: newPersonData.notasPastor || '',
                     notasColaborador: newPersonData.notasColaborador || '',
+                    notasPrivadasPastor: currentUser.rol === 'pastor' ? (newPersonData.notasPrivadasPastor || '') : '',
                     historial: [],
                     archivado: false,
                     motivoArchivo: null,
@@ -332,7 +334,7 @@
                 setShowNewPersonModal(false);
                 setNewPersonData({
                     nombre: '', genero: 'femenino', grado: 3, canal: 'Evangelismo',
-                    telefono: '', direccion: '', perfil: '', temasOracion: '', notasPastor: '', notasColaborador: ''
+                    telefono: '', direccion: '', perfil: '', temasOracion: '', notasPastor: '', notasColaborador: '', notasPrivadasPastor: ''
                 });
             };
 
@@ -831,7 +833,12 @@
                                             <div key={persona.id || persona.idDoc} className="bg-white rounded-xl shadow-sm border flex flex-col justify-between overflow-hidden">
                                                 <div className="p-5 border-b">
                                                     <div className="flex justify-between items-start mb-2">
-                                                        <h3 className="text-lg font-bold text-gray-900">{persona.nombre}</h3>
+                                                        <h3 className="text-lg font-bold text-gray-900 flex items-center gap-1.5">
+                                                            {persona.nombre}
+                                                            {currentUser.rol === 'pastor' && persona.notasPrivadasPastor && (
+                                                                <span title="Tiene notas privadas pastorales" className="text-xs bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded-full">🔒</span>
+                                                            )}
+                                                        </h3>
                                                         <div className="flex items-center gap-1.5">
                                                             <span className="bg-blue-50 text-brandBlue text-xs font-bold px-2.5 py-1 rounded-full border">{nivelNombre}</span>
                                                             <button 
@@ -994,6 +1001,7 @@
                                                                             <div className="flex items-center gap-1.5">
                                                                                 <span className="font-bold text-gray-800">{p.nombre}</span>
                                                                                 <span className="text-gray-500">({nivelNombre})</span>
+                                                                                {p.notasPrivadasPastor && <span title="Contiene notas privadas del pastor">🔒</span>}
                                                                             </div>
                                                                             <button onClick={() => { setSelectedPerson(p); setIsEditingPerson(false); }} className="text-brandBlue font-semibold hover:underline">Ver Ficha</button>
                                                                         </div>
@@ -1195,10 +1203,22 @@
                                         <input type="text" value={newPersonData.notasColaborador} onChange={e=>setNewPersonData({...newPersonData, notasColaborador: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Notas iniciales del colaborador..." />
                                     </div>
                                     {currentUser.rol === 'pastor' && (
-                                        <div>
-                                            <label className="block text-xs font-bold text-brandRed mb-1">Nota para el Pastor</label>
-                                            <input type="text" value={newPersonData.notasPastor} onChange={e=>setNewPersonData({...newPersonData, notasPastor: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Instrucción pastoral..." />
-                                        </div>
+                                        <>
+                                            <div>
+                                                <label className="block text-xs font-bold text-brandRed mb-1">Nota para el Pastor (Visible para colaborador)</label>
+                                                <input type="text" value={newPersonData.notasPastor} onChange={e=>setNewPersonData({...newPersonData, notasPastor: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Instrucción o seguimiento compartido..." />
+                                            </div>
+                                            <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+                                                <label className="block text-xs font-bold text-purple-900 mb-1">🔒 Comentarios Privados del Pastor (Solo visible en sesión Pastoral)</label>
+                                                <textarea 
+                                                    rows="2" 
+                                                    value={newPersonData.notasPrivadasPastor} 
+                                                    onChange={e=>setNewPersonData({...newPersonData, notasPrivadasPastor: e.target.value})} 
+                                                    className="w-full p-2 border border-purple-300 rounded text-sm bg-white" 
+                                                    placeholder="Temas confidenciales tratados en privado..."
+                                                ></textarea>
+                                            </div>
+                                        </>
                                     )}
                                     <div className="flex justify-end gap-2 pt-3 border-t">
                                         <button type="button" onClick={() => setShowNewPersonModal(false)} className="px-4 py-2 border rounded text-xs font-semibold">Cancelar</button>
@@ -1265,6 +1285,23 @@
                                                 💬 {selectedPerson.genero === 'masculino' ? 'Anímalo ahora con un mensajito' : 'Anímala ahora con un mensajito'}
                                             </a>
                                         </div>
+
+                                        {/* APARTADO EXCLUSIVO DEL PASTOR (SOLO VISIBLE EN SESIÓN PASTORAL) */}
+                                        {currentUser.rol === 'pastor' && (
+                                            <div className="bg-purple-50 p-4 rounded-xl border-2 border-purple-300 shadow-sm space-y-1.5">
+                                                <div className="flex justify-between items-center">
+                                                    <h4 className="font-bold text-xs text-purple-900 uppercase flex items-center gap-1.5">
+                                                        🔒 Comentarios Privados del Pastor
+                                                    </h4>
+                                                    <span className="text-[10px] bg-purple-200 text-purple-900 font-bold px-2 py-0.5 rounded-full">
+                                                        Confidencial • Solo Pastor
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-purple-950 whitespace-pre-line leading-relaxed">
+                                                    {selectedPerson.notasPrivadasPastor || 'Sin comentarios privados registrados. Haz clic en "Editar Ficha" para agregar notas confidenciales.'}
+                                                </p>
+                                            </div>
+                                        )}
 
                                         {/* TEMAS DE ORACIÓN */}
                                         <div className="bg-amber-50 p-3 rounded-xl border border-amber-200">
@@ -1381,6 +1418,22 @@
                                     </div>
                                 ) : (
                                     <form onSubmit={handleSaveEditedPerson} className="space-y-3 text-sm">
+                                        {/* CAMPO EXCLUSIVO DE EDICIÓN DEL PASTOR */}
+                                        {currentUser.rol === 'pastor' && (
+                                            <div className="bg-purple-50 p-3 rounded-xl border-2 border-purple-300 space-y-1">
+                                                <label className="block text-xs font-bold text-purple-900">
+                                                    🔒 Comentarios Privados del Pastor (Solo visible en sesión Pastoral)
+                                                </label>
+                                                <textarea 
+                                                    rows="3" 
+                                                    value={selectedPerson.notasPrivadasPastor || ''} 
+                                                    onChange={e => setSelectedPerson({...selectedPerson, notasPrivadasPastor: e.target.value})}
+                                                    className="w-full p-2 border border-purple-300 rounded text-xs bg-white"
+                                                    placeholder="Escribe aquí los temas confidenciales tratados en privado con esta persona..."
+                                                ></textarea>
+                                            </div>
+                                        )}
+
                                         <div className="grid grid-cols-2 gap-3">
                                             <div>
                                                 <label className="block text-xs font-bold text-gray-700 mb-1">Nivel Actual</label>
