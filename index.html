@@ -166,6 +166,13 @@
                 const unsubPersonas = db.collection('personas').onSnapshot(snapshot => {
                     const lista = snapshot.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
                     setPersonas(lista);
+                    
+                    // Si hay una ficha abierta actualmente, actualizamos sus datos en tiempo real de fondo
+                    setSelectedPerson(prev => {
+                        if (!prev) return null;
+                        const actualizada = lista.find(p => p.idDoc === prev.idDoc || p.id === prev.id);
+                        return actualizada ? actualizada : prev;
+                    });
                 });
 
                 const unsubSolicitudes = db.collection('solicitudesClave').onSnapshot(snapshot => {
@@ -382,7 +389,10 @@
                     await db.collection('personas').doc(selectedPerson.idDoc).update(dataToDb);
                 }
 
+                // Actualizamos el estado local de forma inmediata para que se refleje en pantalla sin cerrar el modal
                 setSelectedPerson(updatedPersonData);
+                
+                // Vaciamos únicamente el cuadro de texto del detalle dejándolo listo para otra nota
                 setNuevoHistorial({
                     tipo: 'Llamada',
                     fecha: new Date().toISOString().split('T')[0],
@@ -793,7 +803,7 @@
                                         <p className="text-sm font-serif italic text-emerald-950">"{versiculoHoy.texto}" ({versiculoHoy.cita})</p>
                                     </div>
                                     <a 
-                                        href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Hola! Quería compartir este hermoso versículo de aliento contigo hoy: "${versiculoHoy.texto}" (${versiculoHoy.cita}) - Iglesia La Casa del Alfarero`)}`} 
+                                        href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Hola! Quería compartir هذا hermoso versículo de aliento contigo hoy: "${versiculoHoy.texto}" (${versiculoHoy.cita}) - Iglesia La Casa del Alfarero`)}`} 
                                         target="_blank" 
                                         rel="noopener noreferrer" 
                                         className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow transition flex items-center gap-2 whitespace-nowrap"
