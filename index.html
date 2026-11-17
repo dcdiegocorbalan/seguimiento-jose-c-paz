@@ -139,12 +139,12 @@
                 rol: 'colaborador'
             });
 
-            // Formulario para nueva Oración Privada de Usuario
-            const [nuevaOracionPers, setNuevaOracionPers] = React.useState({
-                categoria: 'Personales',
-                nuevaCategoriaInput: '',
-                detalle: ''
-            });
+            // Formulario para nueva Oración Privada estructurada con ítems dinámicos
+            const [categoriaOracion, setCategoriaOracion] = React.useState('Personales');
+            const [nuevaCategoriaInput, setNuevaCategoriaInput] = React.useState('');
+            const [itemsOracion, setItemsOracion] = React.useState([
+                { motivo: '', detalle: '' }
+            ]);
 
             const [filtroCategoriaOracion, setFiltroCategoriaOracion] = React.useState('todas');
 
@@ -383,17 +383,38 @@
                 alert('¡Ficha actualizada con éxito!');
             };
 
-            const handleAddOracionPersonal = async (e) => {
-                e.preventDefault();
-                if (!nuevaOracionPers.detalle.trim()) return;
+            // Funciones para manejar los ítems dinámicos de la carga de oración
+            const handleAddItemOracion = () => {
+                setItemsOracion([...itemsOracion, { motivo: '', detalle: '' }]);
+            };
 
-                let catFinal = nuevaOracionPers.categoria;
+            const handleRemoveItemOracion = (index) => {
+                const lista = [...itemsOracion];
+                lista.splice(index, 1);
+                setItemsOracion(lista);
+            };
+
+            const handleItemOracionChange = (index, field, value) => {
+                const lista = [...itemsOracion];
+                lista[index][field] = value;
+                setItemsOracion(lista);
+            };
+
+            const handleSaveOracionPersonal = async (e) => {
+                e.preventDefault();
+                const itemsValidos = itemsOracion.filter(item => item.motivo.trim() !== '');
+                if (itemsValidos.length === 0) {
+                    alert('Por favor completa al menos un motivo de oración.');
+                    return;
+                }
+
+                let catFinal = categoriaOracion;
                 if (catFinal === 'NUEVA') {
-                    if (!nuevaOracionPers.nuevaCategoriaInput.trim()) {
+                    if (!nuevaCategoriaInput.trim()) {
                         alert('Por favor ingresa el nombre de la nueva categoría.');
                         return;
                     }
-                    catFinal = nuevaOracionPers.nuevaCategoriaInput.trim();
+                    catFinal = nuevaCategoriaInput.trim();
                 }
 
                 const nuevaEntry = {
@@ -401,17 +422,19 @@
                     usuarioId: currentUser.usuario,
                     autorNombre: currentUser.nombre,
                     categoria: catFinal,
-                    detalle: nuevaOracionPers.detalle.trim(),
+                    items: itemsValidos,
                     fecha: new Date().toLocaleDateString()
                 };
 
                 await db.collection('oracionesPersonales').add(nuevaEntry);
-                setNuevaOracionPers({ categoria: 'Personales', nuevaCategoriaInput: '', detalle: '' });
-                alert('¡Tema de oración agregado correctamente!');
+                setItemsOracion([{ motivo: '', detalle: '' }]);
+                setNuevaCategoriaInput('');
+                alert('¡Temas de oración guardados con éxito!');
+                setActiveTab('verOraciones');
             };
 
             const handleDeleteOracionPersonal = async (idDoc) => {
-                if (confirm('¿Eliminar este tema de oración?')) {
+                if (confirm('¿Eliminar este registro de oración?')) {
                     await db.collection('oracionesPersonales').doc(idDoc).delete();
                 }
             };
@@ -739,12 +762,13 @@
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-3 flex-wrap justify-center">
-                                <nav className="flex bg-gray-100 p-1 rounded-lg text-xs font-semibold">
+                            <div className="flex items-center gap-2 flex-wrap justify-center">
+                                <nav className="flex bg-gray-100 p-1 rounded-lg text-xs font-semibold gap-1">
                                     <button onClick={() => setActiveTab('dashboard')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'dashboard' ? 'bg-brandRed text-white shadow' : 'text-gray-600'}`}>Dashboard</button>
                                     <button onClick={() => setActiveTab('personas')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'personas' ? 'bg-brandRed text-white shadow' : 'text-gray-600'}`}>Personas ({personasActivas.length})</button>
                                     <button onClick={() => setActiveTab('archivados')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'archivados' ? 'bg-brandRed text-white shadow' : 'text-gray-600'}`}>Archivados ({personasArchivadas.length})</button>
-                                    <button onClick={() => setActiveTab('oracion')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'oracion' ? 'bg-brandRed text-white shadow' : 'text-gray-600'}`}>Intercesión</button>
+                                    <button onClick={() => setActiveTab('cargarOracion')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'cargarOracion' ? 'bg-brandBlue text-white shadow' : 'text-gray-600'}`}>➕ Cargar Oración</button>
+                                    <button onClick={() => setActiveTab('verOraciones')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'verOraciones' ? 'bg-brandBlue text-white shadow' : 'text-gray-600'}`}>📖 Ver Oraciones</button>
                                     {currentUser.rol === 'pastor' && (
                                         <>
                                             <button onClick={() => setActiveTab('colaboradores')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'colaboradores' ? 'bg-brandBlue text-white shadow' : 'text-gray-600'}`}>Colaboradores</button>
@@ -984,122 +1008,193 @@
                             </div>
                         )}
 
-                        {activeTab === 'oracion' && (
-                            <div className="space-y-6">
-                                {/* SECCIÓN DE TEMAS DE ORACIÓN PRIVADOS DEL USUARIO ACTUAL CON CATEGORÍAS PERSONALIZADAS */}
-                                <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
-                                    <div className="flex items-center gap-2 border-b pb-3">
-                                        <span className="text-xl">🙏</span>
+                        {/* PESTAÑA 1: CARGAR ORACIÓN PRIVADA */}
+                        {activeTab === 'cargarOracion' && (
+                            <div className="max-w-3xl mx-auto space-y-6 bg-white p-8 rounded-2xl shadow-sm border">
+                                <div className="flex items-center gap-3 border-b pb-4">
+                                    <span className="text-2xl">🙏</span>
+                                    <div>
+                                        <h2 className="text-xl font-bold text-gray-900">Cargar Temas de Oración</h2>
+                                        <p className="text-xs text-gray-500">Registra tus peticiones privadas organizadas por categoría y motivos con sus detalles.</p>
+                                    </div>
+                                </div>
+
+                                <form onSubmit={handleSaveOracionPersonal} className="space-y-6">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
-                                            <h2 className="text-xl font-bold text-gray-900">Mis Temas de Oración Personales</h2>
-                                            <p className="text-xs text-gray-500">Agrega tus peticiones privadas. Solo tú puedes ver y administrar lo que cargues aquí.</p>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Categoría</label>
+                                            <select 
+                                                value={categoriaOracion} 
+                                                onChange={e => setCategoriaOracion(e.target.value)}
+                                                className="w-full p-3 border rounded-xl text-sm bg-gray-50 font-semibold text-gray-900"
+                                            >
+                                                {categoriasDisponibles.map(cat => (
+                                                    <option key={cat} value={cat}>{cat}</option>
+                                                ))}
+                                                <option value="NUEVA">➕ Agregar nueva categoría...</option>
+                                            </select>
                                         </div>
+
+                                        {categoriaOracion === 'NUEVA' && (
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-700 mb-1">Nombre de la nueva categoría</label>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Ej: Ministerio, Finanzas..." 
+                                                    value={nuevaCategoriaInput} 
+                                                    onChange={e => setNuevaCategoriaInput(e.target.value)}
+                                                    className="w-full p-3 border rounded-xl text-sm bg-white"
+                                                />
+                                            </div>
+                                        )}
                                     </div>
 
-                                    <form onSubmit={handleAddOracionPersonal} className="space-y-3">
-                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                            <div>
-                                                <label className="block text-xs font-bold text-gray-700 mb-1">Categoría</label>
-                                                <select 
-                                                    value={nuevaOracionPers.categoria} 
-                                                    onChange={e => setNuevaOracionPers({...nuevaOracionPers, categoria: e.target.value})}
-                                                    className="w-full p-2.5 border rounded-xl text-sm bg-gray-50 font-semibold text-gray-900"
-                                                >
-                                                    {categoriasDisponibles.map(cat => (
-                                                        <option key={cat} value={cat}>{cat}</option>
-                                                    ))}
-                                                    <option value="NUEVA">➕ Agregar nueva categoría...</option>
-                                                </select>
-                                            </div>
-
-                                            {nuevaOracionPers.categoria === 'NUEVA' && (
-                                                <div>
-                                                    <label className="block text-xs font-bold text-gray-700 mb-1">Nombre de la nueva categoría</label>
-                                                    <input 
-                                                        type="text" 
-                                                        placeholder="Ej: Ministerio, Finanzas..." 
-                                                        value={nuevaOracionPers.nuevaCategoriaInput} 
-                                                        onChange={e => setNuevaOracionPers({...nuevaOracionPers, nuevaCategoriaInput: e.target.value})}
-                                                        className="w-full p-2.5 border rounded-xl text-sm bg-white"
-                                                    />
-                                                </div>
-                                            )}
-
-                                            <div className={`${nuevaOracionPers.categoria === 'NUEVA' ? 'sm:col-span-3' : 'sm:col-span-2'}`}>
-                                                <label className="block text-xs font-bold text-gray-700 mb-1">Motivo / Detalle de Oración</label>
-                                                <div className="flex gap-2">
-                                                    <input 
-                                                        type="text" 
-                                                        required
-                                                        placeholder="Escribe tu motivo de oración..." 
-                                                        value={nuevaOracionPers.detalle} 
-                                                        onChange={e => setNuevaOracionPers({...nuevaOracionPers, detalle: e.target.value})}
-                                                        className="w-full p-2.5 border rounded-xl text-sm bg-white"
-                                                    />
-                                                    <button type="submit" className="bg-brandRed hover:bg-red-700 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow transition whitespace-nowrap">
-                                                        + Agregar
-                                                    </button>
-                                                </div>
-                                            </div>
+                                    {/* BLOQUE DE MOTIVOS DINÁMICOS */}
+                                    <div className="space-y-4">
+                                        <div className="flex justify-between items-center">
+                                            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide">Motivos y Detalles Opcionales</label>
+                                            <button 
+                                                type="button" 
+                                                onClick={handleAddItemOracion}
+                                                className="bg-brandBlue text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-blue-900 transition flex items-center gap-1 shadow-sm"
+                                            >
+                                                <span>+</span> Agregar otro motivo
+                                            </button>
                                         </div>
-                                    </form>
 
-                                    {/* Listado Privado del Usuario Actual */}
-                                    <div className="pt-4 border-t space-y-3">
-                                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                                            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Mis Peticiones Registradas ({misOraciones.length})</h3>
+                                        {itemsOracion.map((item, index) => (
+                                            <div key={index} className="p-4 bg-gray-50 rounded-xl border relative space-y-3 shadow-sm">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-xs font-bold text-brandBlue">Motivo #{index + 1}</span>
+                                                    {itemsOracion.length > 1 && (
+                                                        <button 
+                                                            type="button" 
+                                                            onClick={() => handleRemoveItemOracion(index)}
+                                                            className="text-xs text-red-600 hover:bg-red-50 p-1 rounded font-bold"
+                                                        >
+                                                            ✕ Quitar
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label className="block text-[11px] font-bold text-gray-600 mb-1">Motivo Principal *</label>
+                                                        <input 
+                                                            type="text" 
+                                                            required
+                                                            placeholder="Ej: Esposa, Trabajo, Hijo..." 
+                                                            value={item.motivo} 
+                                                            onChange={e => handleItemOracionChange(index, 'motivo', e.target.value)}
+                                                            className="w-full p-2.5 border rounded-lg text-sm bg-white"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-[11px] font-bold text-gray-600 mb-1">Detalle (Opcional)</label>
+                                                        <input 
+                                                            type="text" 
+                                                            placeholder="Ej: Su salud, sus estudios, etc." 
+                                                            value={item.detalle} 
+                                                            onChange={e => handleItemOracionChange(index, 'detalle', e.target.value)}
+                                                            className="w-full p-2.5 border rounded-lg text-sm bg-white"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div className="flex justify-end gap-3 pt-4 border-t">
+                                        <button type="button" onClick={() => setActiveTab('verOraciones')} className="px-5 py-2.5 border rounded-xl text-xs font-semibold">Ver mis oraciones</button>
+                                        <button type="submit" className="px-6 py-2.5 bg-brandRed text-white rounded-xl text-xs font-bold hover:bg-red-700 shadow transition">Guardar Temas de Oración</button>
+                                    </div>
+                                </form>
+                            </div>
+                        )}
+
+                        {/* PESTAÑA 2: VER ORACIONES CON VISTA AMIGABLE */}
+                        {activeTab === 'verOraciones' && (
+                            <div className="space-y-6">
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-6">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4">
+                                        <div>
+                                            <h2 className="text-xl font-bold text-gray-900">📖 Mis Temas de Oración Personales</h2>
+                                            <p className="text-xs text-gray-500">Organizados de forma clara y visual. Solo tú tienes acceso a esta información.</p>
+                                        </div>
+                                        <div className="flex items-center gap-3">
                                             <select 
                                                 value={filtroCategoriaOracion} 
                                                 onChange={e => setFiltroCategoriaOracion(e.target.value)}
-                                                className="p-2 border rounded-xl text-xs bg-gray-50 font-bold text-gray-700"
+                                                className="p-2.5 border rounded-xl text-xs bg-gray-50 font-bold text-gray-700"
                                             >
-                                                <option value="todas">Todas mis categorías</option>
+                                                <option value="todas">Filtrar por categoría (Todas)</option>
                                                 {categoriasDisponibles.map(cat => (
                                                     <option key={cat} value={cat}>{cat}</option>
                                                 ))}
                                             </select>
+                                            <button 
+                                                onClick={() => setActiveTab('cargarOracion')}
+                                                className="bg-brandRed text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-red-700 shadow transition whitespace-nowrap"
+                                            >
+                                                ➕ Cargar Nueva Oración
+                                            </button>
                                         </div>
+                                    </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            {misOraciones.filter(o => filtroCategoriaOracion === 'todas' || o.categoria === filtroCategoriaOracion).length === 0 ? (
-                                                <div className="col-span-full py-6 text-center text-gray-400 text-xs italic">
-                                                    No tienes temas de oración personales registrados todavía.
-                                                </div>
-                                            ) : (
-                                                misOraciones
-                                                    .filter(o => filtroCategoriaOracion === 'todas' || o.categoria === filtroCategoriaOracion)
-                                                    .map(oracion => (
-                                                        <div key={oracion.idDoc || oracion.id} className="border border-gray-200 bg-gray-50 p-4 rounded-xl flex flex-col justify-between space-y-2 shadow-sm">
-                                                            <div className="space-y-1">
-                                                                <div className="flex justify-between items-start">
-                                                                    <span className="bg-blue-100 text-brandBlue text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                                                                        {oracion.categoria}
-                                                                    </span>
-                                                                    <span className="text-[10px] text-gray-400">{oracion.fecha}</span>
-                                                                </div>
-                                                                <p className="text-xs font-medium text-gray-900 leading-relaxed pt-1">
-                                                                    {oracion.detalle}
-                                                                </p>
+                                    {/* GRID VISUAL Y AMIGABLE DE ORACIONES PERSONALES */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        {misOraciones.filter(o => filtroCategoriaOracion === 'todas' || o.categoria === filtroCategoriaOracion).length === 0 ? (
+                                            <div className="col-span-full py-12 text-center text-gray-400 text-xs italic bg-gray-50 rounded-xl border border-dashed">
+                                                No tienes temas de oración personales registrados todavía. Haz clic en "Cargar Nueva Oración" para empezar.
+                                            </div>
+                                        ) : (
+                                            misOraciones
+                                                .filter(o => filtroCategoriaOracion === 'todas' || o.categoria === filtroCategoriaOracion)
+                                                .map(oracion => (
+                                                    <div key={oracion.idDoc || oracion.id} className="border border-gray-200 bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition flex flex-col justify-between space-y-4">
+                                                        <div className="space-y-3">
+                                                            <div className="flex justify-between items-center">
+                                                                <span className="bg-blue-50 text-brandBlue text-[11px] font-extrabold px-3 py-1 rounded-full border border-blue-200 uppercase tracking-wide">
+                                                                    {oracion.categoria}
+                                                                </span>
+                                                                <span className="text-[11px] text-gray-400 font-medium">{oracion.fecha}</span>
                                                             </div>
-                                                            <div className="flex justify-end pt-2 border-t border-gray-200">
-                                                                <button 
-                                                                    onClick={() => handleDeleteOracionPersonal(oracion.idDoc)}
-                                                                    className="text-xs text-red-600 hover:bg-red-50 px-2.5 py-1 rounded font-semibold transition"
-                                                                >
-                                                                    🗑️ Eliminar
-                                                                </button>
+
+                                                            <div className="space-y-2.5 pt-1">
+                                                                {oracion.items && oracion.items.map((item, idx) => (
+                                                                    <div key={idx} className="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                                                                        <p className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                                                                            <span className="w-1.5 h-1.5 rounded-full bg-brandRed"></span>
+                                                                            {item.motivo}
+                                                                        </p>
+                                                                        {item.detalle && (
+                                                                            <p className="text-xs text-gray-600 mt-1 pl-3 border-l-2 border-gray-300 italic">
+                                                                                {item.detalle}
+                                                                            </p>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
                                                             </div>
                                                         </div>
-                                                    ))
-                                            )}
-                                        </div>
+
+                                                        <div className="flex justify-end pt-3 border-t">
+                                                            <button 
+                                                                onClick={() => handleDeleteOracionPersonal(oracion.idDoc)}
+                                                                className="text-xs text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg font-semibold transition flex items-center gap-1"
+                                                            >
+                                                                🗑️ Eliminar registro
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                        )}
                                     </div>
                                 </div>
 
-                                {/* SECCIÓN COMPARTIDA: TEMAS DE ORACIÓN DE LOS SEGUIMIENTOS */}
+                                {/* SECCIÓN COMPARTIDA: PETICIONES DE ORACIÓN DE LOS SEGUIMIENTOS */}
                                 <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
                                     <h3 className="text-lg font-bold text-gray-900">👥 Peticiones de Oración de los Seguimientos Activos</h3>
-                                    <p className="text-xs text-gray-500">Temas de oración recopilados de las fichas de las personas para intercesión general.</p>
+                                    <p className="text-xs text-gray-500">Temas de oración recopilados automáticamente de las fichas de las personas para intercesión general.</p>
 
                                     <div className="space-y-3">
                                         {personasActivas.filter(p => p.temasOracion).length === 0 ? (
