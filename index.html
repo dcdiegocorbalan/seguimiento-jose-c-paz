@@ -359,7 +359,15 @@
                     notasPastor: newPersonData.notasPastor || '',
                     notasColaborador: newPersonData.notasColaborador || '',
                     notasPrivadasPastor: currentUser.rol === 'pastor' ? (newPersonData.notasPrivadasPastor || '') : '',
-                    historial: [],
+                    historial: [
+                        {
+                            id: Date.now(),
+                            tipo: 'Creación',
+                            fecha: new Date().toISOString().split('T')[0],
+                            detalle: `Ficha creada por ${currentUser.nombre}`,
+                            autor: currentUser.nombre
+                        }
+                    ],
                     archivado: false,
                     motivoArchivo: null,
                     observacionesArchivo: null
@@ -377,11 +385,22 @@
                 e.preventDefault();
                 if (selectedPerson && selectedPerson.idDoc) {
                     const grNum = parseInt(selectedPerson.grado);
+                    
+                    // Agregar nota al historial de que fue editada
+                    const editItem = {
+                        id: Date.now(),
+                        tipo: 'Actualización',
+                        fecha: new Date().toISOString().split('T')[0],
+                        detalle: `Ficha actualizada por ${currentUser.nombre}`,
+                        autor: currentUser.nombre
+                    };
+                    const histActualizado = [editItem, ...(Array.isArray(selectedPerson.historial) ? selectedPerson.historial : [])];
+
                     const dataToUpdate = {
                         ...selectedPerson,
                         grado: grNum,
                         gradoTexto: gradosMap[grNum],
-                        historial: Array.isArray(selectedPerson.historial) ? selectedPerson.historial : []
+                        historial: histActualizado
                     };
                     delete dataToUpdate.idDoc;
                     await db.collection('personas').doc(selectedPerson.idDoc).update(dataToUpdate);
@@ -582,6 +601,37 @@
             const colaboradoresUnicos = Array.from(
                 new Set(usuarios.map(u => u.nombre))
             );
+
+            // GENERACIÓN DEL FEED DE ÚLTIMAS ACTUALIZACIONES / INTERACCIONES
+            // Recopilamos todas las interacciones de todas las fichas
+            let todasLasActualizaciones = [];
+            personas.forEach(p => {
+                if (Array.isArray(p.historial)) {
+                    p.historial.forEach(h => {
+                        todasLasActualizaciones.push({
+                            ...h,
+                            personaNombre: p.nombre,
+                            personaIdDoc: p.idDoc,
+                            colaboradorAsignado: p.colaborador
+                        });
+                    });
+                }
+            });
+
+            // Ordenar de más reciente a más antiguo (por id o fecha)
+            todasLasActualizaciones.sort((a, b) => b.id - a.id);
+
+            // Filtrar según el rol y el usuario actual
+            let actualizacionesVisibles = [];
+            if (currentUser.rol === 'pastor') {
+                // El pastor ve TODO
+                actualizacionesVisibles = todasLasActualizaciones;
+            } else {
+                // El colaborador ve solo las interacciones/actualizaciones realizadas en las fichas asignadas a SU nombre
+                actualizacionesVisibles = todasLasActualizaciones.filter(item => 
+                    item.colaboradorAsignado === currentUser.nombre
+                );
+            }
 
             const filteredPersonas = personasActivas.filter(p => {
                 const matchName = p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || p.perfil.toLowerCase().includes(searchTerm.toLowerCase()) || (p.direccion && p.direccion.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -805,7 +855,7 @@
                         <span className="text-xl leading-none">+</span> Nueva Ficha
                     </button>
 
-                    <main className="max-w-7xl mx-auto px-4 py-6 flex-1 w-full">
+                    <main className="max-w-7xl mx-auto px-4 py-6 flex-1 w-full space-y-6">
                         {activeTab === 'dashboard' && (
                             <div className="space-y-6">
                                 <div className="bg-gradient-to-r from-brandBlue to-blue-900 rounded-2xl p-6 text-white shadow-md flex justify-between items-center">
@@ -854,6 +904,64 @@
                                         <p className="text-xs text-gray-500 font-semibold uppercase">Archivados</p>
                                         <p className="text-3xl font-extrabold text-gray-700 mt-1">{personasArchivadas.length}</p>
                                         <span className="text-[11px] text-blue-600 font-semibold mt-2 inline-block">Ver archivo ➔</span>
+                                    </div>
+                                </div>
+
+                                {/* SECCIÓN NUEVA: ÚLTIMAS ACTUALIZACIONES Y ACTIVIDAD EN EL DASHBOARD */}
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
+                                    <div className="flex justify-between items-center border-b pb-3">
+                                        <div>
+                                            <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                                                ⚡ Últimas Actualizaciones e Interacciones
+                                            </h3>
+                                            <p className="text-xs text-gray-500">
+                                                {currentUser.rol === 'pastor' 
+                                                    ? 'Registro general de toda la actividad de las fichas en tiempo real.' 
+                                                    : 'Interacciones y notas registradas en tus fichas asignadas.'}
+                                            </p>
+                                        </div>
+                                        <span className="bg-blue-50 text-brandBlue text-xs font-bold px-3 py-1 rounded-full border">
+                                            {actualizacionesVisibles.length} registros
+                                        </span>
+                                    </div>
+
+                                    <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1">
+                                        {actualizacionesVisibles.length === 0 ? (
+                                            <p className="text-xs text-gray-400 italic py-6 text-center">No hay actualizaciones recientes registradas todavía.</p>
+                                        ) : (
+                                            actualizacionesVisibles.slice(0, 15).map((item, idx) => {
+                                                return (
+                                                    <div 
+                                                        key={idx} 
+                                                        onClick={() => {
+                                                            const persFound = personas.find(p => p.idDoc === item.personaIdDoc || p.nombre === item.personaNombre);
+                                                            if (persFound) {
+                                                                setSelectedPerson(persFound);
+                                                                setIsEditingPerson(false);
+                                                            }
+                                                        }}
+                                                        className="p-3.5 bg-gray-50 hover:bg-blue-50/60 border border-gray-100 hover:border-brandBlue/40 rounded-xl transition cursor-pointer flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs"
+                                                    >
+                                                        <div className="space-y-1">
+                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                <span className="bg-blue-100 text-brandBlue font-bold px-2 py-0.5 rounded text-[10px] uppercase">
+                                                                    {item.tipo}
+                                                                </span>
+                                                                <span className="font-extrabold text-gray-900">Ficha: {item.personaNombre}</span>
+                                                                <span className="text-gray-400">• Por: <strong className="text-gray-700">{item.autor || 'Sistema'}</strong></span>
+                                                            </div>
+                                                            <p className="text-gray-600 italic">"{item.detalle}"</p>
+                                                        </div>
+                                                        <div className="flex items-center gap-3 self-end sm:self-center">
+                                                            <span className="text-[11px] text-gray-400 font-medium">{item.fecha}</span>
+                                                            <span className="bg-brandBlue text-white font-bold px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">
+                                                                Ver Ficha ➔
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                        )}
                                     </div>
                                 </div>
 
@@ -1881,7 +1989,7 @@
                                         value={archiveObs} 
                                         onChange={e => setArchiveObs(e.target.value)} 
                                         className="w-full p-2 border rounded text-xs" 
-                                        placeholder="Detalles adicionales..."
+                                        placeholder="Details adicionales..."
                                     ></textarea>
                                 </div>
 
