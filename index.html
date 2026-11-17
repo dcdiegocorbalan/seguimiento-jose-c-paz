@@ -74,6 +74,7 @@
             const [usuarios, setUsuarios] = React.useState([]);
             const [personas, setPersonas] = React.useState([]);
             const [solicitudesClave, setSolicitudesClave] = React.useState([]);
+            const [oracionesPersonales, setOracionesPersonales] = React.useState([]);
             const [cargandoDatos, setCargandoDatos] = React.useState(true);
 
             // Estado para el modal flotante de información
@@ -138,6 +139,15 @@
                 rol: 'colaborador'
             });
 
+            // Formulario para nueva Oración Privada de Usuario
+            const [nuevaOracionPers, setNuevaOracionPers] = React.useState({
+                categoria: 'Personales',
+                nuevaCategoriaInput: '',
+                detalle: ''
+            });
+
+            const [filtroCategoriaOracion, setFiltroCategoriaOracion] = React.useState('todas');
+
             // Estado para nuevo evento en el historial de la ficha seleccionada
             const [nuevoHistorial, setNuevoHistorial] = React.useState({
                 tipo: 'Llamada',
@@ -167,7 +177,6 @@
                     const lista = snapshot.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
                     setPersonas(lista);
                     
-                    // Si hay una ficha abierta actualmente, actualizamos sus datos en tiempo real de fondo
                     setSelectedPerson(prev => {
                         if (!prev) return null;
                         const actualizada = lista.find(p => p.idDoc === prev.idDoc || p.id === prev.id);
@@ -178,6 +187,11 @@
                 const unsubSolicitudes = db.collection('solicitudesClave').onSnapshot(snapshot => {
                     const lista = snapshot.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
                     setSolicitudesClave(lista);
+                });
+
+                const unsubOracionesPers = db.collection('oracionesPersonales').onSnapshot(snapshot => {
+                    const lista = snapshot.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
+                    setOracionesPersonales(lista);
                     setCargandoDatos(false);
                 });
 
@@ -185,6 +199,7 @@
                     unsubUsuarios();
                     unsubPersonas();
                     unsubSolicitudes();
+                    unsubOracionesPers();
                 };
             }, []);
 
@@ -368,6 +383,39 @@
                 alert('¡Ficha actualizada con éxito!');
             };
 
+            const handleAddOracionPersonal = async (e) => {
+                e.preventDefault();
+                if (!nuevaOracionPers.detalle.trim()) return;
+
+                let catFinal = nuevaOracionPers.categoria;
+                if (catFinal === 'NUEVA') {
+                    if (!nuevaOracionPers.nuevaCategoriaInput.trim()) {
+                        alert('Por favor ingresa el nombre de la nueva categoría.');
+                        return;
+                    }
+                    catFinal = nuevaOracionPers.nuevaCategoriaInput.trim();
+                }
+
+                const nuevaEntry = {
+                    id: Date.now(),
+                    usuarioId: currentUser.usuario,
+                    autorNombre: currentUser.nombre,
+                    categoria: catFinal,
+                    detalle: nuevaOracionPers.detalle.trim(),
+                    fecha: new Date().toLocaleDateString()
+                };
+
+                await db.collection('oracionesPersonales').add(nuevaEntry);
+                setNuevaOracionPers({ categoria: 'Personales', nuevaCategoriaInput: '', detalle: '' });
+                alert('¡Tema de oración agregado correctamente!');
+            };
+
+            const handleDeleteOracionPersonal = async (idDoc) => {
+                if (confirm('¿Eliminar este tema de oración?')) {
+                    await db.collection('oracionesPersonales').doc(idDoc).delete();
+                }
+            };
+
             const handleAddHistorialItem = async (e) => {
                 e.preventDefault();
                 if (!nuevoHistorial.detalle.trim()) return;
@@ -389,10 +437,7 @@
                     await db.collection('personas').doc(selectedPerson.idDoc).update(dataToDb);
                 }
 
-                // Actualizamos el estado local de forma inmediata para que se refleje en pantalla sin cerrar el modal
                 setSelectedPerson(updatedPersonData);
-                
-                // Vaciamos únicamente el cuadro de texto del detalle dejándolo listo para otra nota
                 setNuevoHistorial({
                     tipo: 'Llamada',
                     fecha: new Date().toISOString().split('T')[0],
@@ -493,6 +538,15 @@
             // Filtrado de personas activas
             const personasActivas = personas.filter(p => !p.archivado);
             const personasArchivadas = personas.filter(p => p.archivado);
+
+            // Oraciones privadas del usuario actual
+            const misOraciones = oracionesPersonales.filter(o => o.usuarioId === currentUser.usuario);
+
+            // Categorías existentes únicas creadas por el usuario actual o por defecto
+            const categoriasDisponibles = Array.from(new Set([
+                "Personales", "Familia", "Iglesia", "Sanidad", "Liberación", "Discípulos",
+                ...misOraciones.map(o => o.categoria)
+            ]));
 
             // Lista única de colaboradores y pastores disponibles para selectores (sin duplicados)
             const colaboradoresUnicos = Array.from(
@@ -803,7 +857,7 @@
                                         <p className="text-sm font-serif italic text-emerald-950">"{versiculoHoy.texto}" ({versiculoHoy.cita})</p>
                                     </div>
                                     <a 
-                                        href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Hola! Quería compartir هذا hermoso versículo de aliento contigo hoy: "${versiculoHoy.texto}" (${versiculoHoy.cita}) - Iglesia La Casa del Alfarero`)}`} 
+                                        href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Hola! Quería compartir este hermoso versículo de aliento contigo hoy: "${versiculoHoy.texto}" (${versiculoHoy.cita}) - Iglesia La Casa del Alfarero`)}`} 
                                         target="_blank" 
                                         rel="noopener noreferrer" 
                                         className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow transition flex items-center gap-2 whitespace-nowrap"
@@ -932,53 +986,145 @@
 
                         {activeTab === 'oracion' && (
                             <div className="space-y-6">
-                                <div className="bg-white p-6 rounded-xl shadow-sm border space-y-4">
-                                    <h2 className="text-xl font-bold text-gray-900">🙏 Motivos de Intercesión y Temas de Oración</h2>
-                                    <p className="text-xs text-gray-500">Listado completo de peticiones de oración registradas en las fichas y notas pastorales.</p>
-                                    
-                                    {personasActivas.filter(persona => persona.temasOracion || persona.notasColaborador || persona.notasPastor || (persona.historial && persona.historial.length > 0)).length === 0 ? (
-                                        <p className="text-xs text-gray-500 italic py-6 text-center">No hay registros de oración o intercesión activos todavía.</p>
-                                    ) : (
-                                        <div className="space-y-4">
-                                            {personasActivas.map(persona => {
-                                                const tieneOracion = persona.temasOracion;
-                                                const tieneNotas = persona.notasColaborador || persona.notasPastor;
-                                                const tieneHistorial = persona.historial && persona.historial.length > 0;
-                                                if (!tieneOracion && !tieneNotas && !tieneHistorial) return null;
-
-                                                return (
-                                                    <div key={persona.id || persona.idDoc} className="border rounded-xl p-4 bg-gray-50 space-y-3">
-                                                        <div className="flex justify-between items-center border-b pb-2">
-                                                            <h4 className="font-bold text-brandBlue text-base">{persona.nombre}</h4>
-                                                            <span className="text-xs text-gray-500 font-semibold">Seguimiento: {persona.colaborador}</span>
-                                                        </div>
-
-                                                        {persona.temasOracion && (
-                                                            <div className="bg-amber-50 p-3 rounded border border-amber-200">
-                                                                <strong className="text-amber-900 text-xs uppercase block mb-1">🕊️ Temas de Oración:</strong>
-                                                                <p className="text-gray-800 text-xs font-medium">{persona.temasOracion}</p>
-                                                            </div>
-                                                        )}
-
-                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                                                            {persona.notasColaborador && (
-                                                                <div className="bg-white p-2.5 rounded border">
-                                                                    <strong className="text-gray-700 block mb-1">Nota del Colaborador:</strong>
-                                                                    <p className="text-gray-600">{persona.notasColaborador}</p>
-                                                                </div>
-                                                            )}
-                                                            {persona.notasPastor && (
-                                                                <div className="bg-red-50 p-2.5 rounded border border-red-200">
-                                                                    <strong className="text-brandRed block mb-1">Nota del Pastor:</strong>
-                                                                    <p className="text-gray-700">{persona.notasPastor}</p>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
+                                {/* SECCIÓN DE TEMAS DE ORACIÓN PRIVADOS DEL USUARIO ACTUAL CON CATEGORÍAS PERSONALIZADAS */}
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
+                                    <div className="flex items-center gap-2 border-b pb-3">
+                                        <span className="text-xl">🙏</span>
+                                        <div>
+                                            <h2 className="text-xl font-bold text-gray-900">Mis Temas de Oración Personales</h2>
+                                            <p className="text-xs text-gray-500">Agrega tus peticiones privadas. Solo tú puedes ver y administrar lo que cargues aquí.</p>
                                         </div>
-                                    )}
+                                    </div>
+
+                                    <form onSubmit={handleAddOracionPersonal} className="space-y-3">
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-700 mb-1">Categoría</label>
+                                                <select 
+                                                    value={nuevaOracionPers.categoria} 
+                                                    onChange={e => setNuevaOracionPers({...nuevaOracionPers, categoria: e.target.value})}
+                                                    className="w-full p-2.5 border rounded-xl text-sm bg-gray-50 font-semibold text-gray-900"
+                                                >
+                                                    {categoriasDisponibles.map(cat => (
+                                                        <option key={cat} value={cat}>{cat}</option>
+                                                    ))}
+                                                    <option value="NUEVA">➕ Agregar nueva categoría...</option>
+                                                </select>
+                                            </div>
+
+                                            {nuevaOracionPers.categoria === 'NUEVA' && (
+                                                <div>
+                                                    <label className="block text-xs font-bold text-gray-700 mb-1">Nombre de la nueva categoría</label>
+                                                    <input 
+                                                        type="text" 
+                                                        placeholder="Ej: Ministerio, Finanzas..." 
+                                                        value={nuevaOracionPers.nuevaCategoriaInput} 
+                                                        onChange={e => setNuevaOracionPers({...nuevaOracionPers, nuevaCategoriaInput: e.target.value})}
+                                                        className="w-full p-2.5 border rounded-xl text-sm bg-white"
+                                                    />
+                                                </div>
+                                            )}
+
+                                            <div className={`${nuevaOracionPers.categoria === 'NUEVA' ? 'sm:col-span-3' : 'sm:col-span-2'}`}>
+                                                <label className="block text-xs font-bold text-gray-700 mb-1">Motivo / Detalle de Oración</label>
+                                                <div className="flex gap-2">
+                                                    <input 
+                                                        type="text" 
+                                                        required
+                                                        placeholder="Escribe tu motivo de oración..." 
+                                                        value={nuevaOracionPers.detalle} 
+                                                        onChange={e => setNuevaOracionPers({...nuevaOracionPers, detalle: e.target.value})}
+                                                        className="w-full p-2.5 border rounded-xl text-sm bg-white"
+                                                    />
+                                                    <button type="submit" className="bg-brandRed hover:bg-red-700 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow transition whitespace-nowrap">
+                                                        + Agregar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </form>
+
+                                    {/* Listado Privado del Usuario Actual */}
+                                    <div className="pt-4 border-t space-y-3">
+                                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                                            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Mis Peticiones Registradas ({misOraciones.length})</h3>
+                                            <select 
+                                                value={filtroCategoriaOracion} 
+                                                onChange={e => setFiltroCategoriaOracion(e.target.value)}
+                                                className="p-2 border rounded-xl text-xs bg-gray-50 font-bold text-gray-700"
+                                            >
+                                                <option value="todas">Todas mis categorías</option>
+                                                {categoriasDisponibles.map(cat => (
+                                                    <option key={cat} value={cat}>{cat}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {misOraciones.filter(o => filtroCategoriaOracion === 'todas' || o.categoria === filtroCategoriaOracion).length === 0 ? (
+                                                <div className="col-span-full py-6 text-center text-gray-400 text-xs italic">
+                                                    No tienes temas de oración personales registrados todavía.
+                                                </div>
+                                            ) : (
+                                                misOraciones
+                                                    .filter(o => filtroCategoriaOracion === 'todas' || o.categoria === filtroCategoriaOracion)
+                                                    .map(oracion => (
+                                                        <div key={oracion.idDoc || oracion.id} className="border border-gray-200 bg-gray-50 p-4 rounded-xl flex flex-col justify-between space-y-2 shadow-sm">
+                                                            <div className="space-y-1">
+                                                                <div className="flex justify-between items-start">
+                                                                    <span className="bg-blue-100 text-brandBlue text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                                                        {oracion.categoria}
+                                                                    </span>
+                                                                    <span className="text-[10px] text-gray-400">{oracion.fecha}</span>
+                                                                </div>
+                                                                <p className="text-xs font-medium text-gray-900 leading-relaxed pt-1">
+                                                                    {oracion.detalle}
+                                                                </p>
+                                                            </div>
+                                                            <div className="flex justify-end pt-2 border-t border-gray-200">
+                                                                <button 
+                                                                    onClick={() => handleDeleteOracionPersonal(oracion.idDoc)}
+                                                                    className="text-xs text-red-600 hover:bg-red-50 px-2.5 py-1 rounded font-semibold transition"
+                                                                >
+                                                                    🗑️ Eliminar
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* SECCIÓN COMPARTIDA: TEMAS DE ORACIÓN DE LOS SEGUIMIENTOS */}
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
+                                    <h3 className="text-lg font-bold text-gray-900">👥 Peticiones de Oración de los Seguimientos Activos</h3>
+                                    <p className="text-xs text-gray-500">Temas de oración recopilados de las fichas de las personas para intercesión general.</p>
+
+                                    <div className="space-y-3">
+                                        {personasActivas.filter(p => p.temasOracion).length === 0 ? (
+                                            <p className="text-xs text-gray-400 italic py-4 text-center">No hay peticiones de oración registradas en las fichas de seguimiento.</p>
+                                        ) : (
+                                            personasActivas.filter(p => p.temasOracion).map(p => (
+                                                <div key={p.id || p.idDoc} className="p-3.5 bg-gray-50 border rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs">
+                                                    <div>
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className="font-bold text-brandBlue">{p.nombre}</span>
+                                                            <span className="text-gray-400">• Nivel: {p.gradoTexto}</span>
+                                                            <span className="text-gray-400">• Encargado: {p.colaborador}</span>
+                                                        </div>
+                                                        <p className="text-gray-800 font-medium">🕊️ "{p.temasOracion}"</p>
+                                                    </div>
+                                                    <button 
+                                                        onClick={() => { setSelectedPerson(p); setIsEditingPerson(false); }}
+                                                        className="bg-brandBlue text-white font-bold px-3 py-1.5 rounded-lg hover:bg-blue-900 transition whitespace-nowrap"
+                                                    >
+                                                        Ver Ficha
+                                                    </button>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         )}
