@@ -88,8 +88,12 @@
 
             // Estado de Sesión en el navegador actual
             const [currentUser, setCurrentUser] = React.useState(() => {
-                const saved = localStorage.getItem('alfarero_current_user');
-                return saved ? JSON.parse(saved) : null;
+                try {
+                    const saved = localStorage.getItem('alfarero_current_user');
+                    return saved ? JSON.parse(saved) : null;
+                } catch (e) {
+                    return null;
+                }
             });
 
             // Formularios de Login y Recuperación
@@ -171,7 +175,7 @@
                     } else {
                         setUsuarios(lista);
                     }
-                });
+                }, err => console.error("Error usuarios:", err));
 
                 const unsubPersonas = db.collection('personas').onSnapshot(snapshot => {
                     const lista = snapshot.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
@@ -182,16 +186,19 @@
                         const actualizada = lista.find(p => p.idDoc === prev.idDoc || p.id === prev.id);
                         return actualizada ? actualizada : prev;
                     });
-                });
+                }, err => console.error("Error personas:", err));
 
                 const unsubSolicitudes = db.collection('solicitudesClave').onSnapshot(snapshot => {
                     const lista = snapshot.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
                     setSolicitudesClave(lista);
-                });
+                }, err => console.error("Error solicitudes:", err));
 
                 const unsubOracionesPers = db.collection('oracionesPersonales').onSnapshot(snapshot => {
                     const lista = snapshot.docs.map(doc => ({ idDoc: doc.id, ...doc.data() }));
                     setOracionesPersonales(lista);
+                    setCargandoDatos(false);
+                }, error => {
+                    console.error("Error cargando oraciones:", error);
                     setCargandoDatos(false);
                 });
 
@@ -402,7 +409,7 @@
 
             const handleSaveOracionPersonal = async (e) => {
                 e.preventDefault();
-                const itemsValidos = itemsOracion.filter(item => item.motivo.trim() !== '');
+                const itemsValidos = itemsOracion.filter(item => item.motivo && item.motivo.trim() !== '');
                 if (itemsValidos.length === 0) {
                     alert('Por favor completa al menos un motivo de oración.');
                     return;
@@ -562,13 +569,13 @@
             const personasActivas = personas.filter(p => !p.archivado);
             const personasArchivadas = personas.filter(p => p.archivado);
 
-            // Oraciones privadas del usuario actual
-            const misOraciones = oracionesPersonales.filter(o => o.usuarioId === currentUser.usuario);
+            // Oraciones privadas del usuario actual con protección contra datos nulos
+            const misOraciones = oracionesPersonales.filter(o => o && currentUser && o.usuarioId === currentUser.usuario);
 
             // Categorías existentes únicas creadas por el usuario actual o por defecto
             const categoriasDisponibles = Array.from(new Set([
                 "Personales", "Familia", "Iglesia", "Sanidad", "Liberación", "Discípulos",
-                ...misOraciones.map(o => o.categoria)
+                ...misOraciones.map(o => o.categoria).filter(Boolean)
             ]));
 
             // Lista única de colaboradores y pastores disponibles para selectores (sin duplicados)
@@ -1155,25 +1162,31 @@
                                                         <div className="space-y-3">
                                                             <div className="flex justify-between items-center">
                                                                 <span className="bg-blue-50 text-brandBlue text-[11px] font-extrabold px-3 py-1 rounded-full border border-blue-200 uppercase tracking-wide">
-                                                                    {oracion.categoria}
+                                                                    {oracion.categoria || 'General'}
                                                                 </span>
-                                                                <span className="text-[11px] text-gray-400 font-medium">{oracion.fecha}</span>
+                                                                <span className="text-[11px] text-gray-400 font-medium">{oracion.fecha || ''}</span>
                                                             </div>
 
                                                             <div className="space-y-2.5 pt-1">
-                                                                {oracion.items && oracion.items.map((item, idx) => (
-                                                                    <div key={idx} className="bg-gray-50 p-3 rounded-xl border border-gray-100">
-                                                                        <p className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
-                                                                            <span className="w-1.5 h-1.5 rounded-full bg-brandRed"></span>
-                                                                            {item.motivo}
-                                                                        </p>
-                                                                        {item.detalle && (
-                                                                            <p className="text-xs text-gray-600 mt-1 pl-3 border-l-2 border-gray-300 italic">
-                                                                                {item.detalle}
+                                                                {Array.isArray(oracion.items) ? (
+                                                                    oracion.items.map((item, idx) => (
+                                                                        <div key={idx} className="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                                                                            <p className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                                                                                <span className="w-1.5 h-1.5 rounded-full bg-brandRed"></span>
+                                                                                {item.motivo || 'Motivo'}
                                                                             </p>
-                                                                        )}
+                                                                            {item.detalle && (
+                                                                                <p className="text-xs text-gray-600 mt-1 pl-3 border-l-2 border-gray-300 italic">
+                                                                                    {item.detalle}
+                                                                                </p>
+                                                                            )}
+                                                                        </div>
+                                                                    ))
+                                                                ) : (
+                                                                    <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                                                                        <p className="text-xs text-gray-900">{oracion.detalle || 'Sin detalle'}</p>
                                                                     </div>
-                                                                ))}
+                                                                )}
                                                             </div>
                                                         </div>
 
