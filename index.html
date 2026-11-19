@@ -306,8 +306,6 @@
                             const autorEsPastor = autorRol === 'pastor' || matchesCurrentUser(h.autor) && isPastor;
                             const autorEsMio = matchesCurrentUser(h.autor);
 
-                            // Regla para colaborador: ve interacciones del pastor en fichas asignadas a él
-                            // Regla para pastor: ve interacciones en fichas de colaboradores o de otros usuarios
                             let incluir = false;
                             let esImportante = false;
                             let etiquetaImportante = '';
@@ -383,7 +381,6 @@
                     }
                 });
 
-                // Ordenar: primero las importantes no leídas, luego por más recientes
                 lista.sort((a, b) => b.timestamp - a.timestamp);
                 return lista;
             }, [personas, currentUser]);
@@ -977,181 +974,209 @@
             return (
                 <div className="min-h-screen flex flex-col bg-gray-100 relative pb-20">
                     <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-30">
-                        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col lg:flex-row justify-between items-center gap-3">
-                            <div className="flex items-center gap-3">
-                                <img src="Logo La Casa del Alfarero.png" alt="Logo" className="h-10 object-contain" onError={(e)=>{e.target.style.display='none';}} />
-                                <div>
-                                    <h1 className="text-base font-bold text-gray-900 leading-tight">La Casa del Alfarero</h1>
-                                    <p className="text-xs text-gray-500 font-semibold">Seguimiento • {currentUser.nombre} ({currentUser.rol === 'pastor' ? 'Pastor / Admin' : 'Colaborador'})</p>
+                        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-2.5 lg:gap-4">
+                            {/* Fila 1: Marca + Acciones rápidas (campanita y salir) */}
+                            <div className="flex items-center justify-between w-full lg:w-auto gap-3">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                    <img
+                                        src="Logo La Casa del Alfarero.png"
+                                        alt="Logo"
+                                        className="h-9 sm:h-10 w-auto object-contain shrink-0"
+                                        onError={(e) => { e.target.style.display = 'none'; }}
+                                    />
+                                    <div className="min-w-0">
+                                        <h1 className="text-sm sm:text-base font-bold text-gray-900 leading-tight truncate">
+                                            La Casa del Alfarero
+                                        </h1>
+                                        <p className="text-[11px] sm:text-xs text-gray-500 font-semibold truncate">
+                                            {currentUser.nombre} • {currentUser.rol === 'pastor' ? 'Pastor / Admin' : 'Colaborador'}
+                                        </p>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="flex items-center gap-2 flex-wrap justify-center">
-                                <nav className="flex bg-gray-100 p-1 rounded-lg text-xs font-semibold gap-1 flex-wrap justify-center">
-                                    <button 
-                                        onClick={() => setActiveTab('dashboard')} 
-                                        className={`px-3 py-1.5 rounded-md transition ${activeTab === 'dashboard' ? 'bg-brandRed text-white shadow' : 'text-gray-700 hover:bg-gray-200'}`}
-                                    >
-                                        Dashboard
-                                    </button>
-                                    <button 
-                                        onClick={() => setActiveTab('personas')} 
-                                        className={`px-3 py-1.5 rounded-md transition ${activeTab === 'personas' ? 'bg-brandRed text-white shadow' : 'text-gray-700 hover:bg-gray-200'}`}
-                                    >
-                                        Personas ({personasActivas.length})
-                                    </button>
-                                    <button 
-                                        onClick={() => setActiveTab('archivados')} 
-                                        className={`px-3 py-1.5 rounded-md transition ${activeTab === 'archivados' ? 'bg-brandRed text-white shadow' : 'text-gray-700 hover:bg-gray-200'}`}
-                                    >
-                                        Archivados ({personasArchivadas.length})
-                                    </button>
-                                    <button 
-                                        onClick={() => setActiveTab('cargarOracion')} 
-                                        className={`px-3 py-1.5 rounded-md transition ${activeTab === 'cargarOracion' ? 'bg-brandBlue text-white shadow' : 'text-gray-700 hover:bg-gray-200'}`}
-                                    >
-                                        ➕ Cargar Oración
-                                    </button>
-                                    <button 
-                                        onClick={() => setActiveTab('verOraciones')} 
-                                        className={`px-3 py-1.5 rounded-md transition ${activeTab === 'verOraciones' ? 'bg-brandBlue text-white shadow' : 'text-gray-700 hover:bg-gray-200'}`}
-                                    >
-                                        📖 Ver Oraciones
-                                    </button>
-                                    {currentUser.rol === 'pastor' && (
-                                        <>
-                                            <button 
-                                                onClick={() => setActiveTab('colaboradores')} 
-                                                className={`px-3 py-1.5 rounded-md transition ${activeTab === 'colaboradores' ? 'bg-brandBlue text-white shadow' : 'text-gray-700 hover:bg-gray-200'}`}
-                                            >
-                                                Colaboradores
-                                            </button>
-                                            <button 
-                                                onClick={() => setActiveTab('usuarios')} 
-                                                className={`px-3 py-1.5 rounded-md transition relative ${activeTab === 'usuarios' ? 'bg-brandBlue text-white shadow' : 'text-gray-700 hover:bg-gray-200'}`}
-                                            >
-                                                Usuarios Admin
-                                                {solicitudesClave.filter(s => !s.atendida).length > 0 && (
-                                                    <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
-                                                        {solicitudesClave.filter(s => !s.atendida).length}
-                                                    </span>
-                                                )}
-                                            </button>
-                                        </>
-                                    )}
-                                </nav>
+                                {/* Campanita + Cerrar sesión (siempre alineados arriba a la derecha) */}
+                                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                                    <div className="relative">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowNotificationsPanel(prev => !prev)}
+                                            title="Notificaciones"
+                                            className={`relative p-2 rounded-lg border text-sm transition ${
+                                                unreadNotificationsCount > 0
+                                                    ? 'bg-amber-50 border-amber-300 text-amber-900 hover:bg-amber-100'
+                                                    : 'bg-gray-100 border-gray-200 text-gray-700 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            <span>🔔</span>
+                                            {unreadNotificationsCount > 0 && (
+                                                <span className="absolute -top-1.5 -right-1.5 bg-brandRed text-white text-[10px] min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center font-extrabold shadow">
+                                                    {unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount}
+                                                </span>
+                                            )}
+                                        </button>
 
-                                {/* ÍCONO DE NOTIFICACIONES */}
-                                <div className="relative">
-                                    <button
-                                        onClick={() => setShowNotificationsPanel(prev => !prev)}
-                                        title="Notificaciones"
-                                        className={`relative p-2 rounded-lg border text-sm transition ${
-                                            unreadNotificationsCount > 0 
-                                                ? 'bg-amber-50 border-amber-300 text-amber-900 hover:bg-amber-100' 
-                                                : 'bg-gray-100 border-gray-200 text-gray-700 hover:bg-gray-200'
-                                        }`}
-                                    >
-                                        <span>🔔</span>
-                                        {unreadNotificationsCount > 0 && (
-                                            <span className="absolute -top-1.5 -right-1.5 bg-brandRed text-white text-[10px] min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center font-extrabold shadow">
-                                                {unreadNotificationsCount}
-                                            </span>
-                                        )}
-                                    </button>
-
-                                    {showNotificationsPanel && (
-                                        <div className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto mt-2 sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
-                                            <div className="px-4 py-3 bg-gray-50 border-b flex justify-between items-center">
-                                                <div>
-                                                    <h3 className="text-xs font-extrabold text-gray-900 uppercase tracking-wide">Notificaciones</h3>
-                                                    <p className="text-[11px] text-gray-500">
-                                                        {unreadNotificationsCount} sin leer de {notificacionesUsuario.length}
-                                                    </p>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    {unreadNotificationsCount > 0 && (
-                                                        <button
-                                                            onClick={markAllNotificationsAsRead}
-                                                            className="text-[11px] font-bold text-brandBlue hover:underline"
-                                                        >
-                                                            Marcar todas leídas
-                                                        </button>
-                                                    )}
-                                                    <button
-                                                        onClick={() => setShowNotificationsPanel(false)}
-                                                        className="text-gray-400 hover:text-gray-700 font-bold text-sm px-1"
-                                                    >
-                                                        ✕
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            <div className="max-h-96 overflow-y-auto divide-y divide-gray-100">
-                                                {notificacionesUsuario.length === 0 ? (
-                                                    <div className="p-6 text-center text-xs text-gray-400 italic">
-                                                        No tienes notificaciones por el momento.
+                                        {showNotificationsPanel && (
+                                            <div className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto mt-2 sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
+                                                <div className="px-4 py-3 bg-gray-50 border-b flex justify-between items-center">
+                                                    <div>
+                                                        <h3 className="text-xs font-extrabold text-gray-900 uppercase tracking-wide">Notificaciones</h3>
+                                                        <p className="text-[11px] text-gray-500">
+                                                            {unreadNotificationsCount} sin leer de {notificacionesUsuario.length}
+                                                        </p>
                                                     </div>
-                                                ) : (
-                                                    notificacionesUsuario.map(notif => {
-                                                        const isUnread = !userReadSet.has(notif.id);
-                                                        return (
-                                                            <div
-                                                                key={notif.id}
-                                                                onClick={() => handleOpenNotification(notif)}
-                                                                className={`p-3.5 cursor-pointer transition text-xs space-y-1.5 ${
-                                                                    notif.esImportante
-                                                                        ? isUnread
-                                                                            ? 'bg-amber-100/80 border-l-4 border-l-brandRed hover:bg-amber-100'
-                                                                            : 'bg-amber-50/30 border-l-4 border-l-amber-300 hover:bg-amber-50/60 opacity-85'
-                                                                        : isUnread
-                                                                            ? 'bg-blue-100/70 border-l-4 border-l-brandBlue hover:bg-blue-100'
-                                                                            : 'bg-white hover:bg-gray-50 opacity-80'
-                                                                }`}
+                                                    <div className="flex items-center gap-2">
+                                                        {unreadNotificationsCount > 0 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={markAllNotificationsAsRead}
+                                                                className="text-[11px] font-bold text-brandBlue hover:underline"
                                                             >
-                                                                <div className="flex items-center justify-between gap-2 flex-wrap">
-                                                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                                                        {isUnread && (
-                                                                            <span className="w-2 h-2 rounded-full bg-brandRed inline-block" title="No leída"></span>
-                                                                        )}
-                                                                        {notif.esImportante && (
-                                                                            <span className="bg-brandRed text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase">
-                                                                                ⭐ Importante
-                                                                            </span>
-                                                                        )}
-                                                                        <span className="font-extrabold text-gray-900">{notif.personaNombre}</span>
+                                                                Marcar todas leídas
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setShowNotificationsPanel(false)}
+                                                            className="text-gray-400 hover:text-gray-700 font-bold text-sm px-1"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div className="max-h-96 overflow-y-auto divide-y divide-gray-100">
+                                                    {notificacionesUsuario.length === 0 ? (
+                                                        <div className="p-6 text-center text-xs text-gray-400 italic">
+                                                            No tienes notificaciones por el momento.
+                                                        </div>
+                                                    ) : (
+                                                        notificacionesUsuario.map(notif => {
+                                                            const isUnread = !userReadSet.has(notif.id);
+                                                            return (
+                                                                <div
+                                                                    key={notif.id}
+                                                                    onClick={() => handleOpenNotification(notif)}
+                                                                    className={`p-3.5 cursor-pointer transition text-xs space-y-1.5 ${
+                                                                        notif.esImportante
+                                                                            ? isUnread
+                                                                                ? 'bg-amber-100/80 border-l-4 border-l-brandRed hover:bg-amber-100'
+                                                                                : 'bg-amber-50/30 border-l-4 border-l-amber-300 hover:bg-amber-50/60 opacity-85'
+                                                                            : isUnread
+                                                                                ? 'bg-blue-100/70 border-l-4 border-l-brandBlue hover:bg-blue-100'
+                                                                                : 'bg-white hover:bg-gray-50 opacity-80'
+                                                                    }`}
+                                                                >
+                                                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                                            {isUnread && (
+                                                                                <span className="w-2 h-2 rounded-full bg-brandRed inline-block" title="No leída"></span>
+                                                                            )}
+                                                                            {notif.esImportante && (
+                                                                                <span className="bg-brandRed text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase">
+                                                                                    ⭐ Importante
+                                                                                </span>
+                                                                            )}
+                                                                            <span className="font-extrabold text-gray-900">{notif.personaNombre}</span>
+                                                                        </div>
+                                                                        <span className="text-[10px] text-gray-500 font-medium">{notif.fecha}</span>
                                                                     </div>
-                                                                    <span className="text-[10px] text-gray-500 font-medium">{notif.fecha}</span>
+
+                                                                    {notif.esImportante && notif.etiquetaImportante && (
+                                                                        <p className="text-[11px] font-bold text-amber-900">
+                                                                            {notif.etiquetaImportante} • <span className="font-semibold">{notif.autor}</span>
+                                                                        </p>
+                                                                    )}
+
+                                                                    {!notif.esImportante && (
+                                                                        <p className="text-[11px] text-gray-600">
+                                                                            <strong>{notif.autor}</strong> ({notif.tipo})
+                                                                        </p>
+                                                                    )}
+
+                                                                    <p className={`text-xs ${isUnread ? 'text-gray-900 font-semibold' : 'text-gray-600'}`}>
+                                                                        "{notif.mensaje}"
+                                                                    </p>
                                                                 </div>
-
-                                                                {notif.esImportante && notif.etiquetaImportante && (
-                                                                    <p className="text-[11px] font-bold text-amber-900">
-                                                                        {notif.etiquetaImportante} • <span className="font-semibold">{notif.autor}</span>
-                                                                    </p>
-                                                                )}
-
-                                                                {!notif.esImportante && (
-                                                                    <p className="text-[11px] text-gray-600">
-                                                                        <strong>{notif.autor}</strong> ({notif.tipo})
-                                                                    </p>
-                                                                )}
-
-                                                                <p className={`text-xs ${isUnread ? 'text-gray-900 font-semibold' : 'text-gray-600'}`}>
-                                                                    "{notif.mensaje}"
-                                                                </p>
-                                                            </div>
-                                                        );
-                                                    })
-                                                )}
+                                                            );
+                                                        })
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
-                                </div>
+                                        )}
+                                    </div>
 
-                                <button onClick={handleLogout} className="text-xs text-gray-500 hover:text-red-600 font-semibold px-2 py-1">
-                                    Cerrar Sesión ➔
-                                </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleLogout}
+                                        title="Cerrar sesión"
+                                        className="text-xs text-gray-600 hover:text-red-600 font-semibold px-2.5 py-2 rounded-lg bg-gray-100 hover:bg-red-50 transition whitespace-nowrap"
+                                    >
+                                        <span className="hidden sm:inline">Cerrar Sesión </span>➔
+                                    </button>
+                                </div>
                             </div>
+
+                            {/* Fila 2 (en móvil) / Derecha (en PC): Pestañas en fila deslizable en móvil */}
+                            <nav className="flex bg-gray-100 p-1 rounded-xl text-xs font-semibold gap-1 overflow-x-auto flex-nowrap lg:flex-wrap lg:overflow-visible lg:justify-end">
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('dashboard')}
+                                    className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap shrink-0 ${activeTab === 'dashboard' ? 'bg-brandRed text-white shadow' : 'text-gray-700 hover:bg-gray-200'}`}
+                                >
+                                    Dashboard
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('personas')}
+                                    className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap shrink-0 ${activeTab === 'personas' ? 'bg-brandRed text-white shadow' : 'text-gray-700 hover:bg-gray-200'}`}
+                                >
+                                    Personas ({personasActivas.length})
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('archivados')}
+                                    className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap shrink-0 ${activeTab === 'archivados' ? 'bg-brandRed text-white shadow' : 'text-gray-700 hover:bg-gray-200'}`}
+                                >
+                                    Archivados ({personasArchivadas.length})
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('cargarOracion')}
+                                    className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap shrink-0 ${activeTab === 'cargarOracion' ? 'bg-brandBlue text-white shadow' : 'text-gray-700 hover:bg-gray-200'}`}
+                                >
+                                    ➕ Cargar Oración
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('verOraciones')}
+                                    className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap shrink-0 ${activeTab === 'verOraciones' ? 'bg-brandBlue text-white shadow' : 'text-gray-700 hover:bg-gray-200'}`}
+                                >
+                                    📖 Ver Oraciones
+                                </button>
+                                {currentUser.rol === 'pastor' && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => setActiveTab('colaboradores')}
+                                            className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap shrink-0 ${activeTab === 'colaboradores' ? 'bg-brandBlue text-white shadow' : 'text-gray-700 hover:bg-gray-200'}`}
+                                        >
+                                            Colaboradores
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setActiveTab('usuarios')}
+                                            className={`px-3 py-1.5 rounded-lg transition relative whitespace-nowrap shrink-0 ${activeTab === 'usuarios' ? 'bg-brandBlue text-white shadow' : 'text-gray-700 hover:bg-gray-200'}`}
+                                        >
+                                            Usuarios Admin
+                                            {solicitudesClave.filter(s => !s.atendida).length > 0 && (
+                                                <span className="ml-1.5 inline-flex bg-red-600 text-white text-[10px] w-4 h-4 rounded-full items-center justify-center font-bold">
+                                                    {solicitudesClave.filter(s => !s.atendida).length}
+                                                </span>
+                                            )}
+                                        </button>
+                                    </>
+                                )}
+                            </nav>
                         </div>
                     </header>
 
@@ -2219,67 +2244,4 @@
                                         "Dijo expresamente que no quiere congregarse ni que le escribamos",
                                         "Otros motivos"
                                     ].map(motivo => (
-                                        <label key={motivo} className="flex items-center gap-2 text-xs font-medium text-gray-800 cursor-pointer p-2 rounded hover:bg-gray-50 border">
-                                            <input 
-                                                type="radio" 
-                                                name="archiveMotivo" 
-                                                value={motivo} 
-                                                checked={archiveMotivo === motivo}
-                                                onChange={e => setArchiveMotivo(e.target.value)}
-                                            />
-                                            {motivo}
-                                        </label>
-                                    ))}
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1">Observaciones (Opcional)</label>
-                                    <textarea 
-                                        rows="2" 
-                                        value={archiveObs} 
-                                        onChange={e => setArchiveObs(e.target.value)} 
-                                        className="w-full p-2 border rounded text-xs" 
-                                        placeholder="Detalles adicionales..."
-                                    ></textarea>
-                                </div>
-
-                                <div className="flex justify-end gap-2 pt-3 border-t">
-                                    <button onClick={() => setShowArchiveModal(false)} className="px-3 py-1.5 border rounded text-xs">Cancelar</button>
-                                    <button onClick={handleConfirmArchive} className="px-4 py-1.5 bg-amber-600 text-white rounded text-xs font-bold hover:bg-amber-700">Confirmar Archivo</button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* MODAL FLOTANTE GENERAL DE INFORMACIÓN (ℹ️) */}
-                    {infoModal && (
-                        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-                            <div className="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl border border-gray-100">
-                                <div className="flex justify-between items-center border-b pb-3">
-                                    <h3 className="font-bold text-gray-900 text-base flex items-center gap-2">
-                                        ℹ️ {infoModal.title}
-                                    </h3>
-                                    <button onClick={() => setInfoModal(null)} className="text-gray-400 font-bold hover:text-gray-700 text-lg">✕</button>
-                                </div>
-                                <p className="text-sm text-gray-600 leading-relaxed">
-                                    {infoModal.text}
-                                </p>
-                                <div className="flex justify-end pt-2">
-                                    <button 
-                                        onClick={() => setInfoModal(null)} 
-                                        className="bg-brandBlue text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-900 transition shadow"
-                                    >
-                                        Entendido
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            );
-        }
-
-        ReactDOM.render(<App />, document.getElementById('root'));
-    </script>
-</body>
-</html>
+                                        <label key={motivo} className="flex items-
