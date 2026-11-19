@@ -80,6 +80,9 @@
             // Estado para el modal flotante de información
             const [infoModal, setInfoModal] = React.useState(null);
 
+            // Estado para el panel desplegable de notificaciones
+            const [showNotificationsPanel, setShowNotificationsPanel] = React.useState(false);
+
             // Estado de Archivar
             const [showArchiveModal, setShowArchiveModal] = React.useState(false);
             const [archiveMotivo, setArchiveMotivo] = React.useState('Nuevo miembro');
@@ -93,6 +96,16 @@
                     return saved ? JSON.parse(saved) : null;
                 } catch (e) {
                     return null;
+                }
+            });
+
+            // IDs de notificaciones leídas por usuario
+            const [readNotificationIds, setReadNotificationIds] = React.useState(() => {
+                try {
+                    const saved = localStorage.getItem('alfarero_read_notifs');
+                    return saved ? JSON.parse(saved) : {};
+                } catch (e) {
+                    return {};
                 }
             });
 
@@ -212,8 +225,10 @@
 
             // Control del botón Atrás (historial del navegador móvil)
             React.useEffect(() => {
-                const handlePopState = (event) => {
-                    if (infoModal) {
+                const handlePopState = () => {
+                    if (showNotificationsPanel) {
+                        setShowNotificationsPanel(false);
+                    } else if (infoModal) {
                         setInfoModal(null);
                     } else if (showArchiveModal) {
                         setShowArchiveModal(false);
@@ -229,7 +244,7 @@
 
                 window.addEventListener('popstate', handlePopState);
                 return () => window.removeEventListener('popstate', handlePopState);
-            }, [infoModal, showArchiveModal, showNewPersonModal, selectedPerson, activeTab]);
+            }, [showNotificationsPanel, infoModal, showArchiveModal, showNewPersonModal, selectedPerson, activeTab]);
 
             React.useEffect(() => {
                 if (currentUser) {
@@ -239,13 +254,190 @@
                 }
             }, [currentUser]);
 
+            React.useEffect(() => {
+                try {
+                    localStorage.setItem('alfarero_read_notifs', JSON.stringify(readNotificationIds));
+                } catch (e) {}
+            }, [readNotificationIds]);
+
+            // Usuarios únicos sin duplicados (por usuario o nombre normalizado)
+            const usuariosUnicos = React.useMemo(() => {
+                const map = new Map();
+                usuarios.forEach(u => {
+                    if (!u) return;
+                    const key = (u.usuario || u.nombre || '').toString().trim().toLowerCase();
+                    if (!key) return;
+                    if (!map.has(key)) {
+                        map.set(key, u);
+                    }
+                });
+                return Array.from(map.values());
+            }, [usuarios]);
+
+            const colaboradoresUnicos = React.useMemo(() => {
+                return Array.from(new Set(usuariosUnicos.map(u => u.nombre).filter(Boolean)));
+            }, [usuariosUnicos]);
+
+            // Construcción de notificaciones por usuario con distinción de Importantes y Leídas/No Leídas
+            const notificacionesUsuario = React.useMemo(() => {
+                if (!currentUser) return [];
+
+                const lista = [];
+                const isPastor = currentUser.rol === 'pastor';
+                const myNameLower = (currentUser.nombre || '').trim().toLowerCase();
+                const myUserLower = (currentUser.usuario || '').trim().toLowerCase();
+
+                const matchesCurrentUser = (value) => {
+                    if (!value) return false;
+                    const v = value.toString().trim().toLowerCase();
+                    return v === myNameLower || v === myUserLower;
+                };
+
+                personas.forEach(p => {
+                    if (!p) return;
+                    const assignedToMe = matchesCurrentUser(p.colaborador);
+                    const pKey = p.idDoc || p.id || p.nombre;
+
+                    // 1. Historial / Interacciones
+                    if (Array.isArray(p.historial)) {
+                        p.historial.forEach((h, idx) => {
+                            if (!h) return;
+                            const autorRol = (h.autorRol || '').toString().toLowerCase();
+                            const autorEsPastor = autorRol === 'pastor' || matchesCurrentUser(h.autor) && isPastor;
+                            const autorEsMio = matchesCurrentUser(h.autor);
+
+                            // Regla para colaborador: ve interacciones del pastor en fichas asignadas a él
+                            // Regla para pastor: ve interacciones en fichas de colaboradores o de otros usuarios
+                            let incluir = false;
+                            let esImportante = false;
+                            let etiquetaImportante = '';
+
+                            if (isPastor) {
+                                if (!autorEsMio) {
+                                    incluir = true;
+                                    if (h.tipo === 'Comentario' || h.tipo === 'Nota') {
+                                        esImportante = true;
+                                        etiquetaImportante = 'Comentario de colaborador';
+                                    }
+                                }
+                            } else {
+                                if (assignedToMe && !autorEsMio) {
+                                    incluir = true;
+                                    if (autorEsPastor || (h.autor && h.autor.toLowerCase().includes('pastor'))) {
+                                        esImportante = true;
+                                        etiquetaImportante = 'Interacción del pastor en tu ficha';
+                                    }
+                                }
+                            }
+
+                            if (incluir) {
+                                const notifId = `hist_${pKey}_${h.id || idx}`;
+                                lista.push({
+                                    id: notifId,
+                                    timestamp: Number(h.id) || idx,
+                                    fecha: h.fecha || '',
+                                    personaIdDoc: p.idDoc,
+                                    personaNombre: p.nombre,
+                                    autor: h.autor || 'Usuario',
+                                    tipo: h.tipo || 'Actualización',
+                                    mensaje: h.detalle || 'Actualización en ficha',
+                                    esImportante,
+                                    etiquetaImportante
+                                });
+                            }
+                        });
+                    }
+
+                    // 2. Comentario / Nota del pastor para el colaborador (Importante para el colaborador asignado)
+                    if (!isPastor && assignedToMe && p.notasPastor && p.notasPastor.trim() !== '') {
+                        const notifId = `nota_pastor_${pKey}_${encodeURIComponent(p.notasPastor.trim().slice(0, 40))}`;
+                        lista.push({
+                            id: notifId,
+                            timestamp: Number(p.id) || 1,
+                            fecha: 'Nota Pastoral',
+                            personaIdDoc: p.idDoc,
+                            personaNombre: p.nombre,
+                            autor: 'Pastor',
+                            tipo: 'Comentario del Pastor',
+                            mensaje: p.notasPastor.trim(),
+                            esImportante: true,
+                            etiquetaImportante: 'Comentario del pastor para ti'
+                        });
+                    }
+
+                    // 3. Comentario / Nota del colaborador para el pastor (Importante para el pastor)
+                    if (isPastor && p.notasColaborador && p.notasColaborador.trim() !== '' && !matchesCurrentUser(p.colaborador)) {
+                        const notifId = `nota_colab_${pKey}_${encodeURIComponent(p.notasColaborador.trim().slice(0, 40))}`;
+                        lista.push({
+                            id: notifId,
+                            timestamp: Number(p.id) || 1,
+                            fecha: 'Nota Colaborador',
+                            personaIdDoc: p.idDoc,
+                            personaNombre: p.nombre,
+                            autor: p.colaborador || 'Colaborador',
+                            tipo: 'Comentario de Colaborador',
+                            mensaje: p.notasColaborador.trim(),
+                            esImportante: true,
+                            etiquetaImportante: 'Comentario del colaborador para el pastor'
+                        });
+                    }
+                });
+
+                // Ordenar: primero las importantes no leídas, luego por más recientes
+                lista.sort((a, b) => b.timestamp - a.timestamp);
+                return lista;
+            }, [personas, currentUser]);
+
+            const userReadSet = React.useMemo(() => {
+                if (!currentUser) return new Set();
+                const key = (currentUser.usuario || currentUser.nombre || '').toString().toLowerCase();
+                return new Set(readNotificationIds[key] || []);
+            }, [currentUser, readNotificationIds]);
+
+            const unreadNotificationsCount = React.useMemo(() => {
+                return notificacionesUsuario.filter(n => !userReadSet.has(n.id)).length;
+            }, [notificacionesUsuario, userReadSet]);
+
+            const markNotificationAsRead = (notifId) => {
+                if (!currentUser) return;
+                const key = (currentUser.usuario || currentUser.nombre || '').toString().toLowerCase();
+                setReadNotificationIds(prev => {
+                    const existing = new Set(prev[key] || []);
+                    existing.add(notifId);
+                    return {
+                        ...prev,
+                        [key]: Array.from(existing)
+                    };
+                });
+            };
+
+            const markAllNotificationsAsRead = () => {
+                if (!currentUser) return;
+                const key = (currentUser.usuario || currentUser.nombre || '').toString().toLowerCase();
+                setReadNotificationIds(prev => ({
+                    ...prev,
+                    [key]: notificacionesUsuario.map(n => n.id)
+                }));
+            };
+
+            const handleOpenNotification = (notif) => {
+                markNotificationAsRead(notif.id);
+                setShowNotificationsPanel(false);
+                const persFound = personas.find(p => p.idDoc === notif.personaIdDoc || p.nombre === notif.personaNombre);
+                if (persFound) {
+                    setSelectedPerson(persFound);
+                    setIsEditingPerson(false);
+                }
+            };
+
             const handleLogin = (e) => {
                 e.preventDefault();
-                const userFound = usuarios.find(
+                const userFound = usuariosUnicos.find(
                     u => u.usuario.toLowerCase() === loginUserInput.trim().toLowerCase() && u.clave === loginPassInput.trim()
                 );
                 if (userFound) {
                     setCurrentUser(userFound);
+                    setActiveTab('dashboard');
                     setLoginError('');
                     setLoginUserInput('');
                     setLoginPassInput('');
@@ -256,6 +448,7 @@
 
             const handleLogout = () => {
                 setCurrentUser(null);
+                setShowNotificationsPanel(false);
                 setActiveTab('dashboard');
             };
 
@@ -263,7 +456,7 @@
                 e.preventDefault();
                 if (!forgotUserInput.trim()) return;
 
-                const userExists = usuarios.find(u => u.usuario.toLowerCase() === forgotUserInput.trim().toLowerCase());
+                const userExists = usuariosUnicos.find(u => u.usuario.toLowerCase() === forgotUserInput.trim().toLowerCase());
                 if (!userExists) {
                     setForgotSuccessMsg('Si el usuario existe, se ha enviado la solicitud al administrador.');
                     return;
@@ -300,7 +493,7 @@
                     return;
                 }
 
-                const userDoc = usuarios.find(u => u.id === currentUser.id);
+                const userDoc = usuarios.find(u => u.usuario === currentUser.usuario);
                 if (userDoc && userDoc.idDoc) {
                     await db.collection('usuarios').doc(userDoc.idDoc).update({
                         clave: nuevaClaveObligatoria,
@@ -365,7 +558,8 @@
                             tipo: 'Creación',
                             fecha: new Date().toISOString().split('T')[0],
                             detalle: `Ficha creada por ${currentUser.nombre}`,
-                            autor: currentUser.nombre
+                            autor: currentUser.nombre,
+                            autorRol: currentUser.rol
                         }
                     ],
                     archivado: false,
@@ -386,13 +580,13 @@
                 if (selectedPerson && selectedPerson.idDoc) {
                     const grNum = parseInt(selectedPerson.grado);
                     
-                    // Agregar nota al historial de que fue editada
                     const editItem = {
                         id: Date.now(),
                         tipo: 'Actualización',
                         fecha: new Date().toISOString().split('T')[0],
                         detalle: `Ficha actualizada por ${currentUser.nombre}`,
-                        autor: currentUser.nombre
+                        autor: currentUser.nombre,
+                        autorRol: currentUser.rol
                     };
                     const histActualizado = [editItem, ...(Array.isArray(selectedPerson.historial) ? selectedPerson.historial : [])];
 
@@ -474,7 +668,8 @@
                     tipo: nuevoHistorial.tipo,
                     fecha: nuevoHistorial.fecha || new Date().toISOString().split('T')[0],
                     detalle: nuevoHistorial.detalle.trim(),
-                    autor: currentUser.nombre
+                    autor: currentUser.nombre,
+                    autorRol: currentUser.rol
                 };
 
                 const actualizadoHistorial = [newItem, ...(Array.isArray(selectedPerson.historial) ? selectedPerson.historial : [])];
@@ -545,6 +740,14 @@
                 e.preventDefault();
                 if (!newUserData.usuario || !newUserData.clave || !newUserData.nombre) return;
 
+                const yaExiste = usuariosUnicos.some(
+                    u => u.usuario.toLowerCase() === newUserData.usuario.toLowerCase().trim()
+                );
+                if (yaExiste) {
+                    alert('Ya existe un usuario con ese nombre de usuario.');
+                    return;
+                }
+
                 const newUser = {
                     id: Date.now(),
                     nombre: newUserData.nombre,
@@ -573,7 +776,7 @@
             };
 
             const handleDeleteUser = async (userId, userDocId, rolUsuario) => {
-                if (rolUsuario === 'pastor' && usuarios.filter(u => u.rol === 'pastor').length <= 1) {
+                if (rolUsuario === 'pastor' && usuariosUnicos.filter(u => u.rol === 'pastor').length <= 1) {
                     alert('No puedes eliminar al único administrador del sistema.');
                     return;
                 }
@@ -596,42 +799,6 @@
                 "Personales", "Familia", "Iglesia", "Sanidad", "Liberación", "Discípulos",
                 ...misOraciones.map(o => o.categoria).filter(Boolean)
             ]));
-
-            // Lista única de colaboradores y pastores disponibles para selectores (sin duplicados)
-            const colaboradoresUnicos = Array.from(
-                new Set(usuarios.map(u => u.nombre))
-            );
-
-            // GENERACIÓN DEL FEED DE ÚLTIMAS ACTUALIZACIONES / INTERACCIONES
-            // Recopilamos todas las interacciones de todas las fichas
-            let todasLasActualizaciones = [];
-            personas.forEach(p => {
-                if (Array.isArray(p.historial)) {
-                    p.historial.forEach(h => {
-                        todasLasActualizaciones.push({
-                            ...h,
-                            personaNombre: p.nombre,
-                            personaIdDoc: p.idDoc,
-                            colaboradorAsignado: p.colaborador
-                        });
-                    });
-                }
-            });
-
-            // Ordenar de más reciente a más antiguo (por id o fecha)
-            todasLasActualizaciones.sort((a, b) => b.id - a.id);
-
-            // Filtrar según el rol y el usuario actual
-            let actualizacionesVisibles = [];
-            if (currentUser.rol === 'pastor') {
-                // El pastor ve TODO
-                actualizacionesVisibles = todasLasActualizaciones;
-            } else {
-                // El colaborador ve solo las interacciones/actualizaciones realizadas en las fichas asignadas a SU nombre
-                actualizacionesVisibles = todasLasActualizaciones.filter(item => 
-                    item.colaboradorAsignado === currentUser.nombre
-                );
-            }
 
             const filteredPersonas = personasActivas.filter(p => {
                 const matchName = p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || p.perfil.toLowerCase().includes(searchTerm.toLowerCase()) || (p.direccion && p.direccion.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -810,7 +977,7 @@
             return (
                 <div className="min-h-screen flex flex-col bg-gray-100 relative pb-20">
                     <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-30">
-                        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col lg:flex-row justify-between items-center gap-3">
                             <div className="flex items-center gap-3">
                                 <img src="Logo La Casa del Alfarero.png" alt="Logo" className="h-10 object-contain" onError={(e)=>{e.target.style.display='none';}} />
                                 <div>
@@ -820,16 +987,49 @@
                             </div>
 
                             <div className="flex items-center gap-2 flex-wrap justify-center">
-                                <nav className="flex bg-gray-100 p-1 rounded-lg text-xs font-semibold gap-1">
-                                    <button onClick={() => setActiveTab('dashboard')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'dashboard' ? 'bg-brandRed text-white shadow' : 'text-gray-600'}`}>Dashboard</button>
-                                    <button onClick={() => setActiveTab('personas')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'personas' ? 'bg-brandRed text-white shadow' : 'text-gray-600'}`}>Personas ({personasActivas.length})</button>
-                                    <button onClick={() => setActiveTab('archivados')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'archivados' ? 'bg-brandRed text-white shadow' : 'text-gray-600'}`}>Archivados ({personasArchivadas.length})</button>
-                                    <button onClick={() => setActiveTab('cargarOracion')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'cargarOracion' ? 'bg-brandBlue text-white shadow' : 'text-gray-600'}`}>➕ Cargar Oración</button>
-                                    <button onClick={() => setActiveTab('verOraciones')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'verOraciones' ? 'bg-brandBlue text-white shadow' : 'text-gray-600'}`}>📖 Ver Oraciones</button>
+                                <nav className="flex bg-gray-100 p-1 rounded-lg text-xs font-semibold gap-1 flex-wrap justify-center">
+                                    <button 
+                                        onClick={() => setActiveTab('dashboard')} 
+                                        className={`px-3 py-1.5 rounded-md transition ${activeTab === 'dashboard' ? 'bg-brandRed text-white shadow' : 'text-gray-700 hover:bg-gray-200'}`}
+                                    >
+                                        Dashboard
+                                    </button>
+                                    <button 
+                                        onClick={() => setActiveTab('personas')} 
+                                        className={`px-3 py-1.5 rounded-md transition ${activeTab === 'personas' ? 'bg-brandRed text-white shadow' : 'text-gray-700 hover:bg-gray-200'}`}
+                                    >
+                                        Personas ({personasActivas.length})
+                                    </button>
+                                    <button 
+                                        onClick={() => setActiveTab('archivados')} 
+                                        className={`px-3 py-1.5 rounded-md transition ${activeTab === 'archivados' ? 'bg-brandRed text-white shadow' : 'text-gray-700 hover:bg-gray-200'}`}
+                                    >
+                                        Archivados ({personasArchivadas.length})
+                                    </button>
+                                    <button 
+                                        onClick={() => setActiveTab('cargarOracion')} 
+                                        className={`px-3 py-1.5 rounded-md transition ${activeTab === 'cargarOracion' ? 'bg-brandBlue text-white shadow' : 'text-gray-700 hover:bg-gray-200'}`}
+                                    >
+                                        ➕ Cargar Oración
+                                    </button>
+                                    <button 
+                                        onClick={() => setActiveTab('verOraciones')} 
+                                        className={`px-3 py-1.5 rounded-md transition ${activeTab === 'verOraciones' ? 'bg-brandBlue text-white shadow' : 'text-gray-700 hover:bg-gray-200'}`}
+                                    >
+                                        📖 Ver Oraciones
+                                    </button>
                                     {currentUser.rol === 'pastor' && (
                                         <>
-                                            <button onClick={() => setActiveTab('colaboradores')} className={`px-3 py-1.5 rounded-md transition ${activeTab === 'colaboradores' ? 'bg-brandBlue text-white shadow' : 'text-gray-600'}`}>Colaboradores</button>
-                                            <button onClick={() => setActiveTab('usuarios')} className={`px-3 py-1.5 rounded-md transition relative ${activeTab === 'usuarios' ? 'bg-brandBlue text-white shadow' : 'text-gray-600'}`}>
+                                            <button 
+                                                onClick={() => setActiveTab('colaboradores')} 
+                                                className={`px-3 py-1.5 rounded-md transition ${activeTab === 'colaboradores' ? 'bg-brandBlue text-white shadow' : 'text-gray-700 hover:bg-gray-200'}`}
+                                            >
+                                                Colaboradores
+                                            </button>
+                                            <button 
+                                                onClick={() => setActiveTab('usuarios')} 
+                                                className={`px-3 py-1.5 rounded-md transition relative ${activeTab === 'usuarios' ? 'bg-brandBlue text-white shadow' : 'text-gray-700 hover:bg-gray-200'}`}
+                                            >
                                                 Usuarios Admin
                                                 {solicitudesClave.filter(s => !s.atendida).length > 0 && (
                                                     <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
@@ -840,6 +1040,114 @@
                                         </>
                                     )}
                                 </nav>
+
+                                {/* ÍCONO DE NOTIFICACIONES */}
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setShowNotificationsPanel(prev => !prev)}
+                                        title="Notificaciones"
+                                        className={`relative p-2 rounded-lg border text-sm transition ${
+                                            unreadNotificationsCount > 0 
+                                                ? 'bg-amber-50 border-amber-300 text-amber-900 hover:bg-amber-100' 
+                                                : 'bg-gray-100 border-gray-200 text-gray-700 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        <span>🔔</span>
+                                        {unreadNotificationsCount > 0 && (
+                                            <span className="absolute -top-1.5 -right-1.5 bg-brandRed text-white text-[10px] min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center font-extrabold shadow">
+                                                {unreadNotificationsCount}
+                                            </span>
+                                        )}
+                                    </button>
+
+                                    {showNotificationsPanel && (
+                                        <div className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto mt-2 sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
+                                            <div className="px-4 py-3 bg-gray-50 border-b flex justify-between items-center">
+                                                <div>
+                                                    <h3 className="text-xs font-extrabold text-gray-900 uppercase tracking-wide">Notificaciones</h3>
+                                                    <p className="text-[11px] text-gray-500">
+                                                        {unreadNotificationsCount} sin leer de {notificacionesUsuario.length}
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    {unreadNotificationsCount > 0 && (
+                                                        <button
+                                                            onClick={markAllNotificationsAsRead}
+                                                            className="text-[11px] font-bold text-brandBlue hover:underline"
+                                                        >
+                                                            Marcar todas leídas
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => setShowNotificationsPanel(false)}
+                                                        className="text-gray-400 hover:text-gray-700 font-bold text-sm px-1"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div className="max-h-96 overflow-y-auto divide-y divide-gray-100">
+                                                {notificacionesUsuario.length === 0 ? (
+                                                    <div className="p-6 text-center text-xs text-gray-400 italic">
+                                                        No tienes notificaciones por el momento.
+                                                    </div>
+                                                ) : (
+                                                    notificacionesUsuario.map(notif => {
+                                                        const isUnread = !userReadSet.has(notif.id);
+                                                        return (
+                                                            <div
+                                                                key={notif.id}
+                                                                onClick={() => handleOpenNotification(notif)}
+                                                                className={`p-3.5 cursor-pointer transition text-xs space-y-1.5 ${
+                                                                    notif.esImportante
+                                                                        ? isUnread
+                                                                            ? 'bg-amber-100/80 border-l-4 border-l-brandRed hover:bg-amber-100'
+                                                                            : 'bg-amber-50/30 border-l-4 border-l-amber-300 hover:bg-amber-50/60 opacity-85'
+                                                                        : isUnread
+                                                                            ? 'bg-blue-100/70 border-l-4 border-l-brandBlue hover:bg-blue-100'
+                                                                            : 'bg-white hover:bg-gray-50 opacity-80'
+                                                                }`}
+                                                            >
+                                                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                                        {isUnread && (
+                                                                            <span className="w-2 h-2 rounded-full bg-brandRed inline-block" title="No leída"></span>
+                                                                        )}
+                                                                        {notif.esImportante && (
+                                                                            <span className="bg-brandRed text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase">
+                                                                                ⭐ Importante
+                                                                            </span>
+                                                                        )}
+                                                                        <span className="font-extrabold text-gray-900">{notif.personaNombre}</span>
+                                                                    </div>
+                                                                    <span className="text-[10px] text-gray-500 font-medium">{notif.fecha}</span>
+                                                                </div>
+
+                                                                {notif.esImportante && notif.etiquetaImportante && (
+                                                                    <p className="text-[11px] font-bold text-amber-900">
+                                                                        {notif.etiquetaImportante} • <span className="font-semibold">{notif.autor}</span>
+                                                                    </p>
+                                                                )}
+
+                                                                {!notif.esImportante && (
+                                                                    <p className="text-[11px] text-gray-600">
+                                                                        <strong>{notif.autor}</strong> ({notif.tipo})
+                                                                    </p>
+                                                                )}
+
+                                                                <p className={`text-xs ${isUnread ? 'text-gray-900 font-semibold' : 'text-gray-600'}`}>
+                                                                    "{notif.mensaje}"
+                                                                </p>
+                                                            </div>
+                                                        );
+                                                    })
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
                                 <button onClick={handleLogout} className="text-xs text-gray-500 hover:text-red-600 font-semibold px-2 py-1">
                                     Cerrar Sesión ➔
                                 </button>
@@ -904,64 +1212,6 @@
                                         <p className="text-xs text-gray-500 font-semibold uppercase">Archivados</p>
                                         <p className="text-3xl font-extrabold text-gray-700 mt-1">{personasArchivadas.length}</p>
                                         <span className="text-[11px] text-blue-600 font-semibold mt-2 inline-block">Ver archivo ➔</span>
-                                    </div>
-                                </div>
-
-                                {/* SECCIÓN NUEVA: ÚLTIMAS ACTUALIZACIONES Y ACTIVIDAD EN EL DASHBOARD */}
-                                <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
-                                    <div className="flex justify-between items-center border-b pb-3">
-                                        <div>
-                                            <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                                                ⚡ Últimas Actualizaciones e Interacciones
-                                            </h3>
-                                            <p className="text-xs text-gray-500">
-                                                {currentUser.rol === 'pastor' 
-                                                    ? 'Registro general de toda la actividad de las fichas en tiempo real.' 
-                                                    : 'Interacciones y notas registradas en tus fichas asignadas.'}
-                                            </p>
-                                        </div>
-                                        <span className="bg-blue-50 text-brandBlue text-xs font-bold px-3 py-1 rounded-full border">
-                                            {actualizacionesVisibles.length} registros
-                                        </span>
-                                    </div>
-
-                                    <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1">
-                                        {actualizacionesVisibles.length === 0 ? (
-                                            <p className="text-xs text-gray-400 italic py-6 text-center">No hay actualizaciones recientes registradas todavía.</p>
-                                        ) : (
-                                            actualizacionesVisibles.slice(0, 15).map((item, idx) => {
-                                                return (
-                                                    <div 
-                                                        key={idx} 
-                                                        onClick={() => {
-                                                            const persFound = personas.find(p => p.idDoc === item.personaIdDoc || p.nombre === item.personaNombre);
-                                                            if (persFound) {
-                                                                setSelectedPerson(persFound);
-                                                                setIsEditingPerson(false);
-                                                            }
-                                                        }}
-                                                        className="p-3.5 bg-gray-50 hover:bg-blue-50/60 border border-gray-100 hover:border-brandBlue/40 rounded-xl transition cursor-pointer flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs"
-                                                    >
-                                                        <div className="space-y-1">
-                                                            <div className="flex items-center gap-2 flex-wrap">
-                                                                <span className="bg-blue-100 text-brandBlue font-bold px-2 py-0.5 rounded text-[10px] uppercase">
-                                                                    {item.tipo}
-                                                                </span>
-                                                                <span className="font-extrabold text-gray-900">Ficha: {item.personaNombre}</span>
-                                                                <span className="text-gray-400">• Por: <strong className="text-gray-700">{item.autor || 'Sistema'}</strong></span>
-                                                            </div>
-                                                            <p className="text-gray-600 italic">"{item.detalle}"</p>
-                                                        </div>
-                                                        <div className="flex items-center gap-3 self-end sm:self-center">
-                                                            <span className="text-[11px] text-gray-400 font-medium">{item.fecha}</span>
-                                                            <span className="bg-brandBlue text-white font-bold px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">
-                                                                Ver Ficha ➔
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })
-                                        )}
                                     </div>
                                 </div>
 
@@ -1352,10 +1602,10 @@
                                     <p className="text-xs text-gray-500 mb-6">Listado de hermanos y almas activas asignadas.</p>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        {usuarios.map(colab => {
+                                        {usuariosUnicos.map(colab => {
                                             const almasColab = personasActivas.filter(p => p.colaborador === colab.nombre);
                                             return (
-                                                <div key={colab.id || colab.idDoc} className="border rounded-xl p-5 bg-gray-50 space-y-3">
+                                                <div key={colab.id || colab.idDoc || colab.usuario} className="border rounded-xl p-5 bg-gray-50 space-y-3">
                                                     <div className="flex justify-between items-start border-b pb-2">
                                                         <div>
                                                             <h3 className="font-bold text-gray-900 text-base">{colab.nombre}</h3>
@@ -1475,8 +1725,8 @@
                                 <div className="bg-white p-6 rounded-xl shadow-sm border">
                                     <h3 className="text-lg font-bold text-gray-900 mb-4">Usuarios Habilitados</h3>
                                     <div className="divide-y">
-                                        {usuarios.map(u => (
-                                            <div key={u.id || u.idDoc} className="py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-sm">
+                                        {usuariosUnicos.map(u => (
+                                            <div key={u.id || u.idDoc || u.usuario} className="py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-sm">
                                                 <div>
                                                     <p className="font-bold text-gray-800">{u.nombre}</p>
                                                     <p className="text-xs text-gray-500">Usuario: <span className="font-semibold text-gray-700">{u.usuario}</span> • Clave: <span className="font-mono bg-gray-100 px-2 py-0.5 rounded text-gray-600">••••••••</span></p>
@@ -1989,7 +2239,7 @@
                                         value={archiveObs} 
                                         onChange={e => setArchiveObs(e.target.value)} 
                                         className="w-full p-2 border rounded text-xs" 
-                                        placeholder="Details adicionales..."
+                                        placeholder="Detalles adicionales..."
                                     ></textarea>
                                 </div>
 
