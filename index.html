@@ -1873,7 +1873,7 @@
                                     {currentUser.rol === 'pastor' && (
                                         <>
                                             <div>
-                                                <label className="block text-xs font-bold text-brandRed mb-1">Nota para el Pastor (Visible para colaborador)</label>
+                                                <label className="block text-xs font-bold text-brandRed mb-1">Nota para el Colaborador / Observaciones</label>
                                                 <input type="text" value={newPersonData.notasPastor} onChange={e=>setNewPersonData({...newPersonData, notasPastor: e.target.value})} className="w-full p-2 border rounded text-sm" placeholder="Instrucción..." />
                                             </div>
                                             <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
@@ -1979,7 +1979,7 @@
 
                                         {/* LÍNEA DE TIEMPO / HISTORIAL COMPLETO DE INTERACCIONES */}
                                         <div className="bg-gray-50 p-4 rounded-xl border space-y-3">
-                                            <h4 className="font-bold text-xs text-gray-700 uppercase">📋 Historial Completo de Llamadas, Mensajes y Visitas</h4>
+                                            <h4 className="font-bold text-xs text-gray-700 uppercase">📋 Historial Completo de Conversaciones, Llamadas, Mensajes y Visitas</h4>
                                             
                                             {/* Formulario rápido para agregar nueva interacción */}
                                             <form onSubmit={handleAddHistorialItem} className="bg-white p-3 rounded-lg border space-y-2">
@@ -1993,6 +1993,7 @@
                                                         <option value="Llamada">📞 Llamada</option>
                                                         <option value="Mensaje">💬 Mensaje</option>
                                                         <option value="Visita">🏠 Visita</option>
+                                                        <option value="Conversación directa">🗣️ Conversación directa</option>
                                                     </select>
                                                     <input 
                                                         type="date" 
@@ -2064,7 +2065,7 @@
                                                 <p className="text-gray-700 text-xs">{selectedPerson.notasColaborador || 'Sin notas del colaborador.'}</p>
                                             </div>
                                             <div className="bg-red-50 p-3 rounded border border-red-200">
-                                                <h4 className="font-bold text-brandRed text-xs uppercase mb-1">Nota para el Pastor / Observaciones</h4>
+                                                <h4 className="font-bold text-brandRed text-xs uppercase mb-1">Nota para el Colaborador / Observaciones</h4>
                                                 <p className="text-gray-700 text-xs">{selectedPerson.notasPastor || 'Sin notas pastorales.'}</p>
                                             </div>
                                         </div>
@@ -2204,7 +2205,7 @@
                                             </div>
                                             {currentUser.rol === 'pastor' && (
                                                 <div>
-                                                    <label className="block text-xs font-bold text-brandRed mb-1">Nota para el Pastor</label>
+                                                    <label className="block text-xs font-bold text-brandRed mb-1">Nota para el Colaborador / Observaciones</label>
                                                     <input 
                                                         type="text" 
                                                         value={selectedPerson.notasPastor || ''} 
@@ -2264,7 +2265,7 @@
                                         value={archiveObs} 
                                         onChange={e => setArchiveObs(e.target.value)} 
                                         className="w-full p-2 border rounded text-xs" 
-                                        placeholder="Details adicionales..."
+                                        placeholder="Detalles adicionales..."
                                     ></textarea>
                                 </div>
 
